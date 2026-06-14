@@ -2,12 +2,11 @@ FROM apify/actor-node-playwright-chrome:20
 
 WORKDIR /usr/src/app
 
-COPY package*.json ./
+COPY --chown=myuser package*.json ./
 RUN npm --quiet set progress=false \
-    && npm install --omit=optional
+    && npm ci --include=dev --omit=optional
 
-COPY . ./
+COPY --chown=myuser . ./
 RUN npm run build
 
 CMD ["npm", "start"]
-
