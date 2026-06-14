@@ -1,25 +1,28 @@
 {
   "actorSpecification": 1,
   "fields": {
-    "source": { "type": "string", "title": "Source" },
-    "searchQuery": { "type": "string", "title": "Search" },
-    "position": { "type": "integer", "title": "Position" },
-    "productId": { "type": "string", "title": "Product ID" },
-    "title": { "type": "string", "title": "Product" },
-    "brand": { "type": "string", "title": "Brand" },
-    "price": { "type": "number", "title": "Price" },
-    "mrp": { "type": "number", "title": "MRP" },
-    "discountPercent": { "type": "number", "title": "Discount %" },
-    "currency": { "type": "string", "title": "Currency" },
-    "packSize": { "type": "string", "title": "Pack Size" },
-    "category": { "type": "string", "title": "Category" },
-    "rating": { "type": "number", "title": "Rating" },
-    "ratingCount": { "type": "integer", "title": "Ratings" },
-    "inStock": { "type": "boolean", "title": "In Stock" },
-    "imageUrl": { "type": "string", "title": "Image" },
-    "productUrl": { "type": "string", "title": "URL" },
-    "city": { "type": "string", "title": "City" },
-    "scrapedAt": { "type": "string", "title": "Scraped At" }
+    "type": "object",
+    "properties": {
+      "source": { "type": "string", "title": "Source" },
+      "searchQuery": { "type": ["string", "null"], "title": "Search" },
+      "position": { "type": ["integer", "null"], "title": "Position" },
+      "productId": { "type": ["string", "null"], "title": "Product ID" },
+      "title": { "type": ["string", "null"], "title": "Product" },
+      "brand": { "type": ["string", "null"], "title": "Brand" },
+      "price": { "type": ["number", "null"], "title": "Price" },
+      "mrp": { "type": ["number", "null"], "title": "MRP" },
+      "discountPercent": { "type": ["number", "null"], "title": "Discount %" },
+      "currency": { "type": ["string", "null"], "title": "Currency" },
+      "packSize": { "type": ["string", "null"], "title": "Pack Size" },
+      "category": { "type": ["string", "null"], "title": "Category" },
+      "rating": { "type": ["number", "null"], "title": "Rating" },
+      "ratingCount": { "type": ["integer", "null"], "title": "Ratings" },
+      "inStock": { "type": ["boolean", "null"], "title": "In Stock" },
+      "imageUrl": { "type": ["string", "null"], "title": "Image" },
+      "productUrl": { "type": ["string", "null"], "title": "URL" },
+      "city": { "type": ["string", "null"], "title": "City" },
+      "scrapedAt": { "type": "string", "title": "Scraped At" }
+    }
   },
   "views": {
     "products": {
@@ -74,4 +77,3 @@
     }
   }
 }
-
