@@ -1,0 +1,8 @@
+node_modules/
+dist/
+storage/
+apify_storage/
+.env
+*.log
+tsconfig.tsbuildinfo
+

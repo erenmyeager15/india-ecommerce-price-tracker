@@ -1,0 +1,36 @@
+{
+  "actorSpecification": 1,
+  "name": "india-ecommerce-price-tracker",
+  "title": "India E-commerce Price Tracker",
+  "description": "Track non-personal product prices, discounts, ratings, images, stock status, and URLs across major Indian e-commerce marketplaces for price monitoring and market research.",
+  "version": "1.0",
+  "dockerfile": "Dockerfile",
+  "input": "../INPUT_SCHEMA.json",
+  "readme": "../README.md",
+  "categories": ["ECOMMERCE", "OTHER"],
+  "pricingInfo": {
+    "pricingModel": "PAY_PER_EVENT",
+    "pricingPerEvent": {
+      "actorChargeEvents": {
+        "product-scraped": {
+          "eventTitle": "Product scraped",
+          "eventDescription": "Charged once for each clean non-personal product price record saved to the dataset.",
+          "eventPriceUsd": 0.002,
+          "isPrimaryEvent": true,
+          "isOneTimeEvent": false
+        }
+      }
+    }
+  },
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  },
+  "defaultRunOptions": {
+    "build": "latest",
+    "memoryMbytes": 4096,
+    "timeoutSecs": 14400
+  },
+  "minMemoryMbytes": 1024,
+  "maxMemoryMbytes": 8192
+}
+

@@ -1,0 +1,13 @@
+{
+  "sources": ["bigbasket", "meesho"],
+  "searchQueries": ["milk"],
+  "city": "Mumbai",
+  "latitude": 19.076,
+  "longitude": 72.8777,
+  "maxResults": 10,
+  "maxPagesPerQuery": 1,
+  "proxyConfiguration": {
+    "useApifyProxy": false
+  }
+}
+

@@ -1,0 +1,27 @@
+{
+  "name": "india-ecommerce-price-tracker",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Aggregate non-personal product and price data from major Indian e-commerce marketplaces.",
+  "license": "Apache-2.0",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.4.4",
+    "cheerio": "^1.0.0",
+    "crawlee": "^3.15.3",
+    "got-scraping": "^4.2.1",
+    "playwright": "^1.55.1",
+    "undici": "^6.19.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
+

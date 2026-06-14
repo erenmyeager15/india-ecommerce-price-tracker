@@ -1,0 +1,110 @@
+{
+  "title": "India E-commerce Price Tracker input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "sources": {
+      "title": "Sources",
+      "type": "array",
+      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run.",
+      "editor": "select",
+      "default": ["flipkart", "myntra", "bigbasket", "meesho"],
+      "items": {
+        "type": "string",
+        "enum": ["flipkart", "myntra", "bigbasket", "blinkit", "jiomart", "meesho", "aliexpress"],
+        "enumTitles": ["Flipkart", "Myntra", "BigBasket", "Blinkit", "JioMart", "Meesho", "AliExpress"]
+      },
+      "uniqueItems": true
+    },
+    "searchQueries": {
+      "title": "Search queries",
+      "type": "array",
+      "description": "Product keywords to search, such as milk, kurti, iphone case, or wireless earbuds.",
+      "editor": "stringList",
+      "default": ["milk"],
+      "items": { "type": "string" }
+    },
+    "city": {
+      "title": "City / location name",
+      "type": "string",
+      "description": "Used for location-aware sources such as BigBasket, Blinkit, and JioMart.",
+      "editor": "textfield",
+      "default": "Mumbai"
+    },
+    "latitude": {
+      "title": "Latitude",
+      "type": "number",
+      "description": "Latitude for location-aware sources.",
+      "editor": "number",
+      "default": 19.076
+    },
+    "longitude": {
+      "title": "Longitude",
+      "type": "number",
+      "description": "Longitude for location-aware sources.",
+      "editor": "number",
+      "default": 72.8777
+    },
+    "brands": {
+      "title": "Brand filter",
+      "type": "array",
+      "description": "Optional exact brand filters. Leave empty to keep all brands.",
+      "editor": "stringList",
+      "items": { "type": "string" }
+    },
+    "minPrice": {
+      "title": "Minimum price",
+      "type": "number",
+      "description": "Minimum product price to keep.",
+      "editor": "number",
+      "default": 0,
+      "minimum": 0
+    },
+    "maxPrice": {
+      "title": "Maximum price",
+      "type": "number",
+      "description": "Maximum product price to keep.",
+      "editor": "number",
+      "default": 1000000,
+      "minimum": 0
+    },
+    "inStockOnly": {
+      "title": "In-stock only",
+      "type": "boolean",
+      "description": "Keep only products clearly marked as in stock.",
+      "editor": "checkbox",
+      "default": false
+    },
+    "maxResults": {
+      "title": "Maximum product records",
+      "type": "integer",
+      "description": "Maximum clean product records to save across all selected sources.",
+      "editor": "number",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "maxPagesPerQuery": {
+      "title": "Maximum pages per query",
+      "type": "integer",
+      "description": "Limits pagination or scroll payloads per source/query.",
+      "editor": "number",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 25
+    },
+    "proxyConfiguration": {
+      "title": "Proxy configuration",
+      "type": "object",
+      "description": "Residential India proxy is recommended for these commercial sites.",
+      "editor": "proxy",
+      "default": {
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"],
+        "apifyProxyCountry": "IN"
+      }
+    }
+  },
+  "required": []
+}
+
