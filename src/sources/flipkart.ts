@@ -76,7 +76,6 @@ function parseCard($: cheerio.CheerioAPI, el: any, searchQuery: string, position
     inStock: null,
     imageUrl: image.attr('src') ?? image.attr('data-src') ?? null,
     productUrl,
-    city: null,
   });
 }
 
@@ -147,4 +146,3 @@ export async function scrapeFlipkart(context: SourceContext): Promise<ProductRec
   }
   return records;
 }
-

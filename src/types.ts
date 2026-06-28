@@ -45,24 +45,23 @@ export interface NormalizedInput {
 }
 
 export interface ProductRecord {
-  source: SourceName;
-  searchQuery: string | null;
+  source: string;
+  searchQuery: string;
   position: number | null;
   productId: string | null;
-  title: string | null;
-  brand: string | null;
+  title: string;
+  brand: string;
   price: number | null;
   mrp: number | null;
   discountPercent: number | null;
-  currency: string | null;
-  packSize: string | null;
-  category: string | null;
+  currency: string;
+  packSize: string;
+  category: string;
   rating: number | null;
   ratingCount: number | null;
   inStock: boolean | null;
-  imageUrl: string | null;
   productUrl: string | null;
-  city: string | null;
+  imageUrl: string | null;
   scrapedAt: string;
 }
 
@@ -75,4 +74,3 @@ export interface SourceContext {
 }
 
 export type SourceRunner = (context: SourceContext) => Promise<ProductRecord[]>;
-

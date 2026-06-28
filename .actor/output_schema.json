@@ -1,0 +1,14 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "India E-commerce Price Tracker Output",
+  "description": "Structured Indian e-commerce price records with source, search query, product position, product ID, title, brand, price, MRP, discount, currency, pack size, category, ratings, stock status, product URL, image URL, and scraped timestamp.",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "string",
+      "title": "E-commerce price records",
+      "description": "Clean dataset items containing export-ready product price, discount, rating, stock, URL, and image data across supported Indian marketplaces.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    }
+  }
+}

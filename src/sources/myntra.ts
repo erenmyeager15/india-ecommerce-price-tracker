@@ -94,7 +94,6 @@ function toRecord(product: MyntraProduct, query: string, position: number): Prod
     inStock: null,
     imageUrl: bestImage(product),
     productUrl: url,
-    city: null,
   });
 }
 
@@ -144,4 +143,3 @@ export async function scrapeMyntra(context: SourceContext): Promise<ProductRecor
   }
   return records;
 }
-

@@ -64,7 +64,6 @@ function toRecord(rawValue: unknown, query: string, position: number): ProductRe
     inStock: boolOrNull(raw.in_stock),
     imageUrl: absoluteUrl(cleanText(raw.image), ORIGIN),
     productUrl: productUrl(raw, title),
-    city: null,
   });
 }
 
@@ -118,4 +117,3 @@ export async function scrapeMeesho(context: SourceContext): Promise<ProductRecor
   }
   return records;
 }
-

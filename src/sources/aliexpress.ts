@@ -113,7 +113,6 @@ async function extractProducts(page: Page, searchQuery: string, pageNumber: numb
       inStock: null,
       imageUrl: normalizeUrl(cleanText(raw.imageUrl)),
       productUrl: `https://www.aliexpress.com/item/${productId}.html`,
-      city: null,
     })];
   });
 }
@@ -174,4 +173,3 @@ export async function scrapeAliExpress(context: SourceContext): Promise<ProductR
   await crawler.run(requests);
   return records;
 }
-

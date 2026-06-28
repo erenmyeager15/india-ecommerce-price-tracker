@@ -78,7 +78,6 @@ async function fetchPage(query: string, page: number, proxyUrl?: string): Promis
       inStock,
       imageUrl: cleanText(product.images?.[0]?.l ?? product.images?.[0]?.m ?? product.images?.[0]?.s),
       productUrl: absoluteUrl(rawUrl, ORIGIN),
-      city: null,
     })];
   });
 
@@ -111,4 +110,3 @@ export async function scrapeBigBasket(context: SourceContext): Promise<ProductRe
   }
   return records;
 }
-

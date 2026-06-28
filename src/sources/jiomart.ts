@@ -45,7 +45,7 @@ function extractPackSize(item: JsonObject, attributes: JsonObject | null, title:
   return match?.[1]?.replace(/\s+/g, ' ').trim() ?? structured;
 }
 
-function extractProducts(payloads: Array<{ url: string; json: unknown }>, searchQuery: string, city: string): ProductRecord[] {
+function extractProducts(payloads: Array<{ url: string; json: unknown }>, searchQuery: string): ProductRecord[] {
   const products = new Map<string, ProductRecord>();
   let position = 0;
   for (const payload of payloads) {
@@ -87,7 +87,6 @@ function extractProducts(payloads: Array<{ url: string; json: unknown }>, search
         inStock,
         imageUrl: absoluteUrl(cleanText(firstMedia?.url), 'https://www.jiomart.com'),
         productUrl: absoluteUrl(cleanText(rawItem.slug) ? `/p/${cleanText(rawItem.slug)}` : null, 'https://www.jiomart.com'),
-        city,
       }));
     }
   }
@@ -179,7 +178,7 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
         session?.markBad();
         throw new Error(`JioMart challenge page after search for ${searchQuery}`);
       }
-      const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery, context.input.city);
+      const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
       records.push(...products.slice(0, context.maxResults - records.length));
     },
     failedRequestHandler: async ({ request }, error) => {
@@ -190,4 +189,3 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
   await crawler.run(requests);
   return records;
 }
-

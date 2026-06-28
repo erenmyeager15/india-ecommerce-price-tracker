@@ -2,10 +2,34 @@ import type { NormalizedInput, ProductRecord } from './types.js';
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_PATTERN = /(?<!\w)(?:\+?\d[\d\s().-]*){9,}(?!\w)/g;
+const EMPTY_TEXT_PATTERN = /^(?:undefined|null|nan|n\/a|na)$/i;
+type ProductRecordInput = Partial<Record<keyof ProductRecord, unknown>>;
+
+export const OUTPUT_FIELDS = [
+  'source',
+  'searchQuery',
+  'position',
+  'productId',
+  'title',
+  'brand',
+  'price',
+  'mrp',
+  'discountPercent',
+  'currency',
+  'packSize',
+  'category',
+  'rating',
+  'ratingCount',
+  'inStock',
+  'productUrl',
+  'imageUrl',
+  'scrapedAt',
+] as const;
 
 export function cleanText(value: unknown): string | null {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
-  return text || null;
+  if (!text || EMPTY_TEXT_PATTERN.test(text) || /^proxied content$/i.test(text)) return null;
+  return text;
 }
 
 export function redactText(value: unknown): string | null {
@@ -16,9 +40,10 @@ export function redactText(value: unknown): string | null {
 
 export function numberOrNull(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  const text = cleanText(value)?.replace(/[,₹$€£\s]/g, '');
-  if (!text || text === '-' || text === '.') return null;
-  const parsed = Number.parseFloat(text);
+  const text = cleanText(value);
+  const numeric = text?.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/)?.[0];
+  if (!numeric || numeric === '-' || numeric === '.') return null;
+  const parsed = Number.parseFloat(numeric);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -58,10 +83,21 @@ export function slugify(value: string): string {
 }
 
 export function absoluteUrl(value: string | null, origin: string): string | null {
-  if (!value) return null;
-  if (value.startsWith('//')) return `https:${value}`;
-  if (/^https?:\/\//i.test(value)) return value.replace(/^http:\/\//i, 'https://');
-  return `${origin}${value.startsWith('/') ? '' : '/'}${value}`;
+  const text = cleanText(value);
+  if (!text) return null;
+  const candidate = text.startsWith('//')
+    ? `https:${text}`
+    : /^https?:\/\//i.test(text)
+      ? text
+      : `${origin}${text.startsWith('/') ? '' : '/'}${text}`;
+  try {
+    const url = new URL(candidate);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    if (url.protocol === 'http:') url.protocol = 'https:';
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function discountFromPrices(price: number | null, mrp: number | null): number | null {
@@ -69,22 +105,101 @@ export function discountFromPrices(price: number | null, mrp: number | null): nu
   return Math.round(((mrp - price) / mrp) * 100);
 }
 
-export function withDefaults(record: Omit<ProductRecord, 'scrapedAt'> & { scrapedAt?: string }): ProductRecord {
+function textOrFallback(value: unknown, fallback: string): string {
+  return redactText(value) ?? fallback;
+}
+
+function integerPosition(value: unknown): number | null {
+  const parsed = integerOrNull(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function ratingOrNull(value: unknown, ratingCount: number | null): number | null {
+  const rating = numberOrNull(value);
+  if (rating === null) return null;
+  if (rating === 0 && (ratingCount === null || ratingCount === 0)) return null;
+  return Math.round(rating * 10) / 10;
+}
+
+function isoTimestamp(value: unknown): string {
+  const text = cleanText(value);
+  if (text) {
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function validAbsoluteOutputUrl(value: unknown): string | null {
+  const text = cleanText(value);
+  if (!text) return null;
+  const candidate = text.startsWith('//') ? `https:${text}` : text;
+  try {
+    const url = new URL(candidate);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    if (url.protocol === 'http:') url.protocol = 'https:';
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeProductRecord(record: ProductRecordInput): ProductRecord {
+  const ratingCount = integerOrNull(record.ratingCount);
   return {
+    source: textOrFallback(record.source, 'N/A'),
+    searchQuery: textOrFallback(record.searchQuery, 'N/A'),
+    position: integerPosition(record.position),
+    productId: cleanText(record.productId),
+    title: textOrFallback(record.title, 'N/A'),
+    brand: textOrFallback(record.brand, 'N/A'),
+    price: numberOrNull(record.price),
+    mrp: numberOrNull(record.mrp),
+    discountPercent: numberOrNull(record.discountPercent),
+    currency: textOrFallback(record.currency, 'INR'),
+    packSize: textOrFallback(record.packSize, 'N/A'),
+    category: textOrFallback(record.category, 'N/A'),
+    rating: ratingOrNull(record.rating, ratingCount),
+    ratingCount,
+    inStock: boolOrNull(record.inStock),
+    productUrl: validAbsoluteOutputUrl(record.productUrl),
+    imageUrl: validAbsoluteOutputUrl(record.imageUrl),
+    scrapedAt: isoTimestamp(record.scrapedAt),
+  };
+}
+
+export function withDefaults(record: ProductRecordInput & { source: unknown }): ProductRecord {
+  return normalizeProductRecord({
     ...record,
-    title: redactText(record.title),
-    brand: redactText(record.brand),
-    category: redactText(record.category),
-    packSize: redactText(record.packSize),
     currency: record.currency ?? 'INR',
     scrapedAt: record.scrapedAt ?? new Date().toISOString(),
-  };
+  });
+}
+
+export function validateProductRecord(record: ProductRecord): string[] {
+  const errors: string[] = [];
+  const keys = Object.keys(record);
+  if (keys.join('|') !== OUTPUT_FIELDS.join('|')) {
+    errors.push(`Unexpected output field order: ${keys.join(', ')}`);
+  }
+  for (const [key, value] of Object.entries(record)) {
+    if (value === undefined) errors.push(`${key} is undefined`);
+    if (typeof value === 'number' && !Number.isFinite(value)) errors.push(`${key} is not a finite number`);
+  }
+  if (!record.source || record.source === 'N/A') errors.push('source is required');
+  if (!record.searchQuery || record.searchQuery === 'N/A') errors.push('searchQuery is required');
+  if (!record.title || record.title === 'N/A') errors.push('title is required');
+  for (const key of ['productUrl', 'imageUrl'] as const) {
+    const value = record[key];
+    if (value !== null && !/^https?:\/\//i.test(value)) errors.push(`${key} must be an absolute URL or null`);
+  }
+  return errors;
 }
 
 export function shouldKeepProduct(record: ProductRecord, input: NormalizedInput): boolean {
   if (input.brands.size > 0) {
-    const brand = record.brand?.toLowerCase();
-    if (!brand || !input.brands.has(brand)) return false;
+    const brand = record.brand.toLowerCase();
+    if (brand === 'n/a' || !input.brands.has(brand)) return false;
   }
   if (input.inStockOnly && record.inStock !== true) return false;
   if (record.price === null) return input.minPrice <= 0 && input.maxPrice >= 1_000_000;
@@ -109,3 +224,40 @@ export function parseCompactCount(value: string | null): number | null {
   return Math.round(parsed);
 }
 
+export function summarizeProducts(records: ProductRecord[], input: NormalizedInput): Record<string, unknown> {
+  const prices = records.map((record) => record.price).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const bySource: Record<string, number> = {};
+  for (const record of records) {
+    bySource[record.source] = (bySource[record.source] ?? 0) + 1;
+  }
+  const cheapest = records
+    .filter((record) => record.price !== null)
+    .sort((a, b) => (a.price ?? Number.POSITIVE_INFINITY) - (b.price ?? Number.POSITIVE_INFINITY))[0];
+  const highestRated = records
+    .filter((record) => record.rating !== null)
+    .sort((a, b) => {
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+      return ratingDiff !== 0 ? ratingDiff : (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+    })[0];
+
+  return {
+    totalResults: records.length,
+    totalSources: Object.keys(bySource).length,
+    searchQuery: input.searchQueries.join(', '),
+    sourcesIncluded: Object.keys(bySource),
+    resultsPerSource: bySource,
+    minPrice: prices.length ? Math.min(...prices) : null,
+    maxPrice: prices.length ? Math.max(...prices) : null,
+    averagePrice: prices.length ? Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100 : null,
+    cheapestItem: cheapest ? { title: cheapest.title, source: cheapest.source, price: cheapest.price } : null,
+    highestRatedItem: highestRated ? {
+      title: highestRated.title,
+      source: highestRated.source,
+      rating: highestRated.rating,
+      ratingCount: highestRated.ratingCount,
+    } : null,
+    missingPriceCount: records.filter((record) => record.price === null).length,
+    missingRatingCount: records.filter((record) => record.rating === null).length,
+    finishedAt: new Date().toISOString(),
+  };
+}

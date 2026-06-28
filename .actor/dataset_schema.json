@@ -4,23 +4,22 @@
     "type": "object",
     "properties": {
       "source": { "type": "string", "title": "Source" },
-      "searchQuery": { "type": ["string", "null"], "title": "Search" },
+      "searchQuery": { "type": "string", "title": "Search Query" },
       "position": { "type": ["integer", "null"], "title": "Position" },
       "productId": { "type": ["string", "null"], "title": "Product ID" },
-      "title": { "type": ["string", "null"], "title": "Product" },
-      "brand": { "type": ["string", "null"], "title": "Brand" },
+      "title": { "type": "string", "title": "Title" },
+      "brand": { "type": "string", "title": "Brand" },
       "price": { "type": ["number", "null"], "title": "Price" },
       "mrp": { "type": ["number", "null"], "title": "MRP" },
       "discountPercent": { "type": ["number", "null"], "title": "Discount %" },
-      "currency": { "type": ["string", "null"], "title": "Currency" },
-      "packSize": { "type": ["string", "null"], "title": "Pack Size" },
-      "category": { "type": ["string", "null"], "title": "Category" },
+      "currency": { "type": "string", "title": "Currency" },
+      "packSize": { "type": "string", "title": "Pack Size" },
+      "category": { "type": "string", "title": "Category" },
       "rating": { "type": ["number", "null"], "title": "Rating" },
-      "ratingCount": { "type": ["integer", "null"], "title": "Ratings" },
+      "ratingCount": { "type": ["integer", "null"], "title": "Rating Count" },
       "inStock": { "type": ["boolean", "null"], "title": "In Stock" },
-      "imageUrl": { "type": ["string", "null"], "title": "Image" },
-      "productUrl": { "type": ["string", "null"], "title": "URL" },
-      "city": { "type": ["string", "null"], "title": "City" },
+      "productUrl": { "type": ["string", "null"], "title": "Product URL" },
+      "imageUrl": { "type": ["string", "null"], "title": "Image URL" },
       "scrapedAt": { "type": "string", "title": "Scraped At" }
     }
   },
@@ -29,10 +28,8 @@
       "title": "Products",
       "transformation": {
         "fields": [
-          "imageUrl",
           "source",
           "searchQuery",
-          "city",
           "position",
           "productId",
           "title",
@@ -47,19 +44,18 @@
           "ratingCount",
           "inStock",
           "productUrl",
+          "imageUrl",
           "scrapedAt"
         ]
       },
       "display": {
         "component": "table",
         "properties": {
-          "imageUrl": { "label": "Image", "format": "image" },
           "source": { "label": "Source" },
-          "searchQuery": { "label": "Search" },
-          "city": { "label": "City" },
+          "searchQuery": { "label": "Search Query" },
           "position": { "label": "Position" },
           "productId": { "label": "Product ID" },
-          "title": { "label": "Product" },
+          "title": { "label": "Title" },
           "brand": { "label": "Brand" },
           "price": { "label": "Price" },
           "mrp": { "label": "MRP" },
@@ -68,9 +64,10 @@
           "packSize": { "label": "Pack Size" },
           "category": { "label": "Category" },
           "rating": { "label": "Rating" },
-          "ratingCount": { "label": "Ratings" },
+          "ratingCount": { "label": "Rating Count" },
           "inStock": { "label": "In Stock" },
-          "productUrl": { "label": "URL", "format": "link" },
+          "productUrl": { "label": "Product URL", "format": "link" },
+          "imageUrl": { "label": "Image URL", "format": "image" },
           "scrapedAt": { "label": "Scraped At", "format": "date" }
         }
       }

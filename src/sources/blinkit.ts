@@ -30,7 +30,7 @@ function isBlockedText(title: string, body: string): boolean {
   return /access denied|just a moment|verify you are human|cf-chl-|request blocked|captcha/i.test(`${title}\n${body}`);
 }
 
-function extractProducts(payloads: unknown[], searchQuery: string, city: string): ProductRecord[] {
+function extractProducts(payloads: unknown[], searchQuery: string): ProductRecord[] {
   const products = new Map<string, ProductRecord>();
   let position = 0;
   const visit = (value: unknown): void => {
@@ -68,7 +68,6 @@ function extractProducts(payloads: unknown[], searchQuery: string, city: string)
           inStock: !soldOut && (inventory === null || inventory > 0),
           imageUrl: cleanText(cartItem.image_url) ?? cleanText(asObject(value.image)?.url),
           productUrl: `https://blinkit.com/prn/${slugify(title)}/prid/${productId}`,
-          city,
         }));
       }
     }
@@ -144,7 +143,7 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
       }
       await Promise.allSettled([...responseTasks]);
       page.off('response', responseHandler);
-      const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery, context.input.city);
+      const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
       records.push(...products.slice(0, context.maxResults - records.length));
     },
     failedRequestHandler: async ({ request }, error) => {
@@ -155,4 +154,3 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
   await crawler.run(requests);
   return records;
 }
-
