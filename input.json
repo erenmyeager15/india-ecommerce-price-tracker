@@ -1,13 +1,12 @@
 {
-  "sources": ["bigbasket", "meesho"],
-  "searchQueries": ["milk"],
+  "sources": ["myntra"],
+  "searchQueries": ["kurti"],
   "city": "Mumbai",
   "latitude": 19.076,
   "longitude": 72.8777,
-  "maxResults": 10,
+  "maxResults": 3,
   "maxPagesPerQuery": 1,
   "proxyConfiguration": {
     "useApifyProxy": false
   }
 }
-

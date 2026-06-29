@@ -8,7 +8,7 @@
       "type": "array",
       "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run.",
       "editor": "select",
-      "default": ["flipkart", "myntra", "bigbasket", "meesho"],
+      "default": ["myntra"],
       "items": {
         "type": "string",
         "enum": ["flipkart", "myntra", "bigbasket", "blinkit", "jiomart", "meesho", "aliexpress"],
@@ -21,7 +21,7 @@
       "type": "array",
       "description": "Product keywords to search, such as milk, kurti, iphone case, or wireless earbuds.",
       "editor": "stringList",
-      "default": ["milk"],
+      "default": ["kurti"],
       "items": { "type": "string" }
     },
     "city": {
@@ -80,7 +80,7 @@
       "type": "integer",
       "description": "Maximum clean product records to save across all selected sources.",
       "editor": "number",
-      "default": 50,
+      "default": 10,
       "minimum": 1,
       "maximum": 1000
     },
@@ -89,22 +89,19 @@
       "type": "integer",
       "description": "Limits pagination or scroll payloads per source/query.",
       "editor": "number",
-      "default": 2,
+      "default": 1,
       "minimum": 1,
       "maximum": 25
     },
     "proxyConfiguration": {
       "title": "Proxy configuration",
       "type": "object",
-      "description": "Residential India proxy is recommended for these commercial sites.",
+      "description": "Optional proxy settings. Start without a proxy for Myntra; use an India residential proxy if a selected marketplace blocks or localizes requests.",
       "editor": "proxy",
       "default": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"],
-        "apifyProxyCountry": "IN"
+        "useApifyProxy": false
       }
     }
   },
   "required": []
 }
-

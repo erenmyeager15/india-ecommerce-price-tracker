@@ -29,10 +29,10 @@ const RUNNERS: Record<SourceName, SourceRunner> = {
 };
 
 function normalizeSources(values: unknown): SourceName[] {
-  if (!Array.isArray(values)) return ['flipkart', 'myntra', 'bigbasket', 'meesho'];
+  if (!Array.isArray(values)) return ['myntra'];
   const set = new Set(ALL_SOURCES);
   const sources = values.map((value) => String(value).trim().toLowerCase()).filter((value): value is SourceName => set.has(value as SourceName));
-  return sources.length ? [...new Set(sources)] : ['flipkart', 'myntra', 'bigbasket', 'meesho'];
+  return sources.length ? [...new Set(sources)] : ['myntra'];
 }
 
 function normalizeInput(raw: ActorInput): NormalizedInput {
@@ -40,7 +40,7 @@ function normalizeInput(raw: ActorInput): NormalizedInput {
   const maxPrice = Math.max(Number(raw.maxPrice ?? 1_000_000), minPrice);
   return {
     sources: normalizeSources(raw.sources),
-    searchQueries: uniqueStrings(raw.searchQueries ?? ['milk']),
+    searchQueries: uniqueStrings(raw.searchQueries ?? ['kurti']),
     city: String(raw.city ?? 'Mumbai').trim() || 'Mumbai',
     latitude: Number.isFinite(raw.latitude) ? Number(raw.latitude) : 19.076,
     longitude: Number.isFinite(raw.longitude) ? Number(raw.longitude) : 72.8777,
@@ -48,12 +48,10 @@ function normalizeInput(raw: ActorInput): NormalizedInput {
     minPrice,
     maxPrice,
     inStockOnly: raw.inStockOnly === true,
-    maxResults: Math.min(Math.max(Math.floor(Number(raw.maxResults ?? 50)), 1), 1000),
-    maxPagesPerQuery: Math.min(Math.max(Math.floor(Number(raw.maxPagesPerQuery ?? 2)), 1), 25),
+    maxResults: Math.min(Math.max(Math.floor(Number(raw.maxResults ?? 10)), 1), 1000),
+    maxPagesPerQuery: Math.min(Math.max(Math.floor(Number(raw.maxPagesPerQuery ?? 1)), 1), 25),
     proxyConfiguration: raw.proxyConfiguration ?? {
-      useApifyProxy: true,
-      apifyProxyGroups: ['RESIDENTIAL'],
-      apifyProxyCountry: 'IN',
+      useApifyProxy: false,
     },
   };
 }
