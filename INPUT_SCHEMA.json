@@ -1,12 +1,13 @@
 {
   "title": "India E-commerce Price Tracker input",
+  "description": "Search Indian e-commerce sources for product price records that can feed competitor price reports, price-history baselines, and product-matching workflows.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "sources": {
       "title": "Sources",
       "type": "array",
-      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run.",
+      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run. For small agent calls, start with one reliable source such as Myntra.",
       "editor": "select",
       "default": ["myntra"],
       "items": {
@@ -19,7 +20,7 @@
     "searchQueries": {
       "title": "Search queries",
       "type": "array",
-      "description": "Product keywords to search, such as milk, kurti, iphone case, or wireless earbuds.",
+      "description": "Product keywords to search, such as milk, kurti, tshirts, skincare, phone case, or wireless earbuds. Use narrow product terms for cleaner competitor matching.",
       "editor": "stringList",
       "default": ["kurti"],
       "items": { "type": "string" }
@@ -48,7 +49,7 @@
     "brands": {
       "title": "Brand filter",
       "type": "array",
-      "description": "Optional exact brand filters. Leave empty to keep all brands.",
+      "description": "Optional exact brand filters for competitor/product matching. Leave empty to keep all brands.",
       "editor": "stringList",
       "items": { "type": "string" }
     },
@@ -78,7 +79,7 @@
     "maxResults": {
       "title": "Maximum product records",
       "type": "integer",
-      "description": "Maximum clean product records to save across all selected sources.",
+      "description": "Maximum clean product records to save across all selected sources. Use 5-20 for small price-intelligence reports; increase only for deliberate category monitoring.",
       "editor": "number",
       "default": 10,
       "minimum": 1,
@@ -87,7 +88,7 @@
     "maxPagesPerQuery": {
       "title": "Maximum pages per query",
       "type": "integer",
-      "description": "Limits pagination or scroll payloads per source/query.",
+      "description": "Limits pagination or scroll payloads per source/query. Keep at 1 for cheap validation and agent calls.",
       "editor": "number",
       "default": 1,
       "minimum": 1,
