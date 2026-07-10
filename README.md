@@ -139,6 +139,18 @@ The following record came from a successful Myntra run on June 23, 2026.
 }
 ```
 
+## Historical Cross-Store Comparison Example
+
+This is a public-data capability sample from a successful June 19, 2026 run for `milk`. It demonstrates conservative matching, not live price monitoring or a client report.
+
+| Product | BigBasket | Blinkit | Difference | Match confidence | Action note |
+| --- | ---: | ---: | --- | --- | --- |
+| Amul Gold Full Cream Milk, 1 L | INR 72, in stock | INR 72, in stock | INR 0 (0.0%) | Exact | Same public price in this stored snapshot. |
+| Amul Taaza Milk, 1 L | INR 57, in stock | INR 59, in stock | Blinkit +INR 2 (+3.5%) | High | Brand, Taaza product family, and 1 L pack match. Blinkit includes `Toned`; verify the product page before acting. |
+| Mother Dairy Full Cream Milk, 1 L | INR 72, in stock | No safe match in the stored Blinkit result set | Not compared | Needs review | Do not infer a competitor price. Add a known competitor URL or broaden the search. |
+
+The Blinkit rows were captured for Mumbai, while the stored BigBasket rows did not expose a city. Re-run both sources for the same city before using any price difference in a business decision. Product titles that are merely similar are excluded instead of being silently compared.
+
 ## Export Quality
 
 Before a product is saved, the Actor normalizes and validates it:
