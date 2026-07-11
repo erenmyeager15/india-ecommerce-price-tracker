@@ -2,7 +2,7 @@
   "actorSpecification": 1,
   "name": "india-ecommerce-price-tracker",
   "title": "India E-commerce Price Tracker",
-  "description": "Search Indian e-commerce marketplaces for non-personal product price intelligence. Use for competitor price reports, product matching, stock/change monitoring, and market research; returns source, query, title, brand, price, MRP, discount, rating, stock signal, image, and product URL.",
+  "description": "Discover and compare matching products across Indian e-commerce marketplaces. Returns explainable match confidence, brand and pack evidence, price, MRP, stock, ratings, images, source URLs, and a ready-to-review Markdown comparison report.",
   "version": "1.0",
   "dockerfile": "Dockerfile",
   "input": "../INPUT_SCHEMA.json",

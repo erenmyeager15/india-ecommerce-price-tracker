@@ -2,6 +2,10 @@
   {
     "source": "bigbasket",
     "searchQuery": "milk",
+    "targetProduct": "milk",
+    "matchConfidence": "likely",
+    "matchScore": 65,
+    "matchReason": "name 1/1 terms",
     "position": 1,
     "productId": "40147597",
     "title": "Daily Health Toned Milk",
@@ -22,6 +26,10 @@
   {
     "source": "myntra",
     "searchQuery": "tshirts",
+    "targetProduct": "tshirts",
+    "matchConfidence": "likely",
+    "matchScore": 65,
+    "matchReason": "name 1/1 terms",
     "position": 1,
     "productId": "41743532",
     "title": "Roadster Pack of 2 Printed Lounge Tshirts",
@@ -42,6 +50,10 @@
   {
     "source": "meesho",
     "searchQuery": "kurti",
+    "targetProduct": "kurti",
+    "matchConfidence": "likely",
+    "matchScore": 65,
+    "matchReason": "name 1/1 terms",
     "position": 1,
     "productId": "7k9eu8",
     "title": "Aagam Fabulous Kurtis",

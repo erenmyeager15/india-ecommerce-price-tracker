@@ -14,9 +14,27 @@ export interface ProxyInput {
   proxyUrls?: string[];
 }
 
+export interface ProductTargetInput {
+  name?: string;
+  brand?: string;
+  packSize?: string;
+  variant?: string;
+}
+
+export interface ProductTarget {
+  name: string;
+  brand: string | null;
+  packSize: string | null;
+  variant: string | null;
+  searchQuery: string;
+}
+
+export type MatchConfidence = 'exact' | 'high' | 'likely' | 'needs_review';
+
 export interface ActorInput {
   sources?: SourceName[];
   searchQueries?: string[];
+  targetProducts?: ProductTargetInput[];
   city?: string;
   latitude?: number;
   longitude?: number;
@@ -32,6 +50,7 @@ export interface ActorInput {
 export interface NormalizedInput {
   sources: SourceName[];
   searchQueries: string[];
+  targetProducts: ProductTarget[];
   city: string;
   latitude: number;
   longitude: number;
@@ -47,6 +66,10 @@ export interface NormalizedInput {
 export interface ProductRecord {
   source: string;
   searchQuery: string;
+  targetProduct: string;
+  matchConfidence: MatchConfidence;
+  matchScore: number;
+  matchReason: string;
   position: number | null;
   productId: string | null;
   title: string;

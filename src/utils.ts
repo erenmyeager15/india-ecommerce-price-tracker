@@ -1,4 +1,4 @@
-import type { NormalizedInput, ProductRecord } from './types.js';
+import type { MatchConfidence, NormalizedInput, ProductRecord } from './types.js';
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_PATTERN = /(?<!\w)(?:\+?\d[\d\s().-]*){9,}(?!\w)/g;
@@ -8,6 +8,10 @@ type ProductRecordInput = Partial<Record<keyof ProductRecord, unknown>>;
 export const OUTPUT_FIELDS = [
   'source',
   'searchQuery',
+  'targetProduct',
+  'matchConfidence',
+  'matchScore',
+  'matchReason',
   'position',
   'productId',
   'title',
@@ -146,9 +150,16 @@ function validAbsoluteOutputUrl(value: unknown): string | null {
 
 export function normalizeProductRecord(record: ProductRecordInput): ProductRecord {
   const ratingCount = integerOrNull(record.ratingCount);
+  const matchConfidence = cleanText(record.matchConfidence) as MatchConfidence | null;
   return {
     source: textOrFallback(record.source, 'N/A'),
     searchQuery: textOrFallback(record.searchQuery, 'N/A'),
+    targetProduct: textOrFallback(record.targetProduct, textOrFallback(record.searchQuery, 'N/A')),
+    matchConfidence: matchConfidence && ['exact', 'high', 'likely', 'needs_review'].includes(matchConfidence)
+      ? matchConfidence
+      : 'needs_review',
+    matchScore: Math.min(Math.max(integerOrNull(record.matchScore) ?? 0, 0), 100),
+    matchReason: textOrFallback(record.matchReason, 'Candidate not scored yet.'),
     position: integerPosition(record.position),
     productId: cleanText(record.productId),
     title: textOrFallback(record.title, 'N/A'),
@@ -188,6 +199,9 @@ export function validateProductRecord(record: ProductRecord): string[] {
   }
   if (!record.source || record.source === 'N/A') errors.push('source is required');
   if (!record.searchQuery || record.searchQuery === 'N/A') errors.push('searchQuery is required');
+  if (!record.targetProduct || record.targetProduct === 'N/A') errors.push('targetProduct is required');
+  if (!['exact', 'high', 'likely', 'needs_review'].includes(record.matchConfidence)) errors.push('matchConfidence is invalid');
+  if (record.matchScore < 0 || record.matchScore > 100) errors.push('matchScore must be between 0 and 100');
   if (!record.title || record.title === 'N/A') errors.push('title is required');
   for (const key of ['productUrl', 'imageUrl'] as const) {
     const value = record[key];
@@ -227,8 +241,10 @@ export function parseCompactCount(value: string | null): number | null {
 export function summarizeProducts(records: ProductRecord[], input: NormalizedInput): Record<string, unknown> {
   const prices = records.map((record) => record.price).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
   const bySource: Record<string, number> = {};
+  const byConfidence: Record<string, number> = {};
   for (const record of records) {
     bySource[record.source] = (bySource[record.source] ?? 0) + 1;
+    byConfidence[record.matchConfidence] = (byConfidence[record.matchConfidence] ?? 0) + 1;
   }
   const cheapest = records
     .filter((record) => record.price !== null)
@@ -246,6 +262,7 @@ export function summarizeProducts(records: ProductRecord[], input: NormalizedInp
     searchQuery: input.searchQueries.join(', '),
     sourcesIncluded: Object.keys(bySource),
     resultsPerSource: bySource,
+    resultsByMatchConfidence: byConfidence,
     minPrice: prices.length ? Math.min(...prices) : null,
     maxPrice: prices.length ? Math.max(...prices) : null,
     averagePrice: prices.length ? Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100 : null,

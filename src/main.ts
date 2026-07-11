@@ -1,5 +1,6 @@
 import { Actor, log } from 'apify';
 import type { ActorInput, NormalizedInput, ProductRecord, SourceName, SourceRunner } from './types.js';
+import { applyBestProductMatch, buildComparisonReport, normalizeProductTargets } from './matching.js';
 import {
   hasForbiddenField,
   normalizeProductRecord,
@@ -38,9 +39,12 @@ function normalizeSources(values: unknown): SourceName[] {
 function normalizeInput(raw: ActorInput): NormalizedInput {
   const minPrice = Math.max(Number(raw.minPrice ?? 0), 0);
   const maxPrice = Math.max(Number(raw.maxPrice ?? 1_000_000), minPrice);
+  const fallbackQueries = uniqueStrings(raw.searchQueries ?? ['kurti']);
+  const targetProducts = normalizeProductTargets(raw.targetProducts, fallbackQueries);
   return {
     sources: normalizeSources(raw.sources),
-    searchQueries: uniqueStrings(raw.searchQueries ?? ['kurti']),
+    searchQueries: uniqueStrings(targetProducts.map((target) => target.searchQuery)),
+    targetProducts,
     city: String(raw.city ?? 'Mumbai').trim() || 'Mumbai',
     latitude: Number.isFinite(raw.latitude) ? Number(raw.latitude) : 19.076,
     longitude: Number.isFinite(raw.longitude) ? Number(raw.longitude) : 72.8777,
@@ -60,9 +64,7 @@ function uniqueKey(record: ProductRecord): string | null {
   return record.productId ? `${record.source}:${record.productId}` : record.productUrl ? `${record.source}:${record.productUrl}` : null;
 }
 
-await Actor.init();
-
-try {
+async function run(): Promise<void> {
   const input = normalizeInput((await Actor.getInput<ActorInput>()) ?? {});
   if (input.searchQueries.length === 0) throw new Error('Provide at least one search query.');
 
@@ -77,6 +79,7 @@ try {
   log.info('Starting India E-commerce Price Tracker', {
     sources: input.sources,
     searchQueries: input.searchQueries,
+    targetProducts: input.targetProducts.map((target) => target.name),
     maxResults: input.maxResults,
     perSourceLimit: initialPerSourceLimit,
   });
@@ -89,10 +92,25 @@ try {
     // under-delivering source is automatically available to later sources.
     const sourceLimit = Math.max(1, Math.ceil(remainingCapacity / remainingSources));
     const runner = RUNNERS[source];
-    let records: ProductRecord[] = [];
+    const records: ProductRecord[] = [];
+    const perTargetLimit = Math.max(1, Math.ceil(sourceLimit / input.targetProducts.length));
 
     try {
-      records = await runner({ input, maxResults: sourceLimit, proxyConfiguration });
+      for (const target of input.targetProducts) {
+        try {
+          const targetInput: NormalizedInput = {
+            ...input,
+            searchQueries: [target.searchQuery],
+            targetProducts: [target],
+          };
+          const targetRecords = await runner({ input: targetInput, maxResults: perTargetLimit, proxyConfiguration });
+          records.push(...targetRecords);
+        } catch (error) {
+          log.warning(`Source ${source} failed for target ${target.name}; continuing with other targets.`, {
+            error: (error as Error).message,
+          });
+        }
+      }
       log.info(`Source ${source} returned ${records.length} candidate products.`);
     } catch (error) {
       log.warning(`Source ${source} failed; continuing with remaining sources.`, { error: (error as Error).message });
@@ -106,27 +124,28 @@ try {
         continue;
       }
       const normalizedRecord = normalizeProductRecord(record);
-      if (!shouldKeepProduct(normalizedRecord, input)) continue;
-      const validationErrors = validateProductRecord(normalizedRecord);
+      const matchedRecord = applyBestProductMatch(normalizedRecord, input.targetProducts);
+      if (!shouldKeepProduct(matchedRecord, input)) continue;
+      const validationErrors = validateProductRecord(matchedRecord);
       if (validationErrors.length > 0) {
         log.warning(`Skipped ${source} product with invalid normalized output.`, {
-          productId: normalizedRecord.productId,
-          title: normalizedRecord.title,
+          productId: matchedRecord.productId,
+          title: matchedRecord.title,
           validationErrors,
         });
         continue;
       }
-      const key = uniqueKey(normalizedRecord);
+      const key = uniqueKey(matchedRecord);
       if (!key || seen.has(key)) continue;
 
       try {
-        const chargeResult = await Actor.pushData(normalizedRecord, CHARGE_EVENT);
+        const chargeResult = await Actor.pushData(matchedRecord, CHARGE_EVENT);
         const recordWasSaved = chargeResult.chargedCount > 0
           || !chargeResult.eventChargeLimitReached;
 
         if (recordWasSaved) {
           seen.add(key);
-          savedRecords.push(normalizedRecord);
+          savedRecords.push(matchedRecord);
           saved += 1;
         }
 
@@ -155,8 +174,14 @@ try {
     throw new Error('India E-commerce Price Tracker finished with no saved products.');
   }
 
+  await Actor.setValue('MATCH_REPORT', buildComparisonReport(savedRecords, input), {
+    contentType: 'text/markdown; charset=utf-8',
+  });
+
   log.info('India E-commerce Price Tracker summary', summarizeProducts(savedRecords, input));
   log.info(`Finished India E-commerce Price Tracker with ${saved} clean product records.`);
-} finally {
-  await Actor.exit();
 }
+
+await Actor.init();
+await run();
+await Actor.exit();

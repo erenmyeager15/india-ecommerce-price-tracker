@@ -5,6 +5,10 @@
     "properties": {
       "source": { "type": "string", "title": "Source" },
       "searchQuery": { "type": "string", "title": "Search Query" },
+      "targetProduct": { "type": "string", "title": "Target Product" },
+      "matchConfidence": { "type": "string", "title": "Match Confidence", "enum": ["exact", "high", "likely", "needs_review"] },
+      "matchScore": { "type": "integer", "title": "Match Score", "minimum": 0, "maximum": 100 },
+      "matchReason": { "type": "string", "title": "Match Evidence" },
       "position": { "type": ["integer", "null"], "title": "Position" },
       "productId": { "type": ["string", "null"], "title": "Product ID" },
       "title": { "type": "string", "title": "Title" },
@@ -30,6 +34,10 @@
         "fields": [
           "source",
           "searchQuery",
+          "targetProduct",
+          "matchConfidence",
+          "matchScore",
+          "matchReason",
           "position",
           "productId",
           "title",
@@ -53,6 +61,10 @@
         "properties": {
           "source": { "label": "Source" },
           "searchQuery": { "label": "Search Query" },
+          "targetProduct": { "label": "Target Product" },
+          "matchConfidence": { "label": "Match Confidence" },
+          "matchScore": { "label": "Match Score" },
+          "matchReason": { "label": "Match Evidence" },
           "position": { "label": "Position" },
           "productId": { "label": "Product ID" },
           "title": { "label": "Title" },

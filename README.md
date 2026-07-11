@@ -1,12 +1,13 @@
 # India E-commerce Price Tracker
 
-Compare public product prices, discounts, ratings, stock signals, and listing URLs across seven Indian and cross-border marketplaces in one normalized Apify dataset.
+Discover comparable products and review public prices, discounts, ratings, stock signals, and listing URLs across seven Indian and cross-border marketplaces in one normalized Apify dataset.
 
-The Actor is built for competitor monitoring, assortment research, and recurring price snapshots. It saves product-level facts only and does not intentionally collect seller contacts, reviewer identities, emails, phone numbers, or other personal data.
+The Actor is built for competitor monitoring, assortment research, and recurring price snapshots. Structured product targets receive an explainable confidence score based on product-name terms, brand, pack size, and variant evidence. It saves product-level facts only and does not intentionally collect seller contacts, reviewer identities, emails, phone numbers, or other personal data.
 
 ## What It Extracts
 
 - Product identity: source, search query, result position, product ID, title, brand, category, size, or variant.
+- Product matching: target product, confidence (`exact`, `high`, `likely`, or `needs_review`), numeric score, and human-readable match evidence.
 - Pricing: current price, MRP/list price, discount percentage, and currency.
 - Market signals: aggregate rating, rating count, and stock status when exposed by the source.
 - Links and media: absolute product URL and image URL.
@@ -27,6 +28,48 @@ The Actor is built for competitor monitoring, assortment research, and recurring
 Each source runs independently. If one source is blocked or changes its page structure, the Actor logs that failure and continues with the remaining selected sources.
 
 ## Quick Start
+
+### Product discovery and comparison
+
+Use structured targets when you know the products but not every competitor URL. The Actor derives one marketplace search per target and scores the returned candidates.
+
+```json
+{
+  "sources": ["bigbasket", "blinkit"],
+  "targetProducts": [
+    {
+      "name": "Amul Gold Full Cream Milk",
+      "brand": "Amul",
+      "packSize": "1 L",
+      "variant": "Gold Full Cream"
+    },
+    {
+      "name": "Amul Taaza Milk",
+      "brand": "Amul",
+      "packSize": "1 L",
+      "variant": "Taaza"
+    },
+    {
+      "name": "Mother Dairy Full Cream Milk",
+      "brand": "Mother Dairy",
+      "packSize": "1 L",
+      "variant": "Full Cream"
+    }
+  ],
+  "city": "Mumbai",
+  "latitude": 19.076,
+  "longitude": 72.8777,
+  "maxResults": 20,
+  "maxPagesPerQuery": 1,
+  "proxyConfiguration": {
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "IN"
+  }
+}
+```
+
+This mode is intended for 3-5 deliberate targets. Confidence remains visible so ambiguous matches can be reviewed instead of silently accepted.
 
 ### Lowest-cost first run
 
@@ -87,7 +130,8 @@ This matches the Store sample and uses a source recently verified without a prox
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sources` | array | `["myntra"]` | One or more supported marketplace input values. |
-| `searchQueries` | array | `["kurti"]` | Product keywords to search. |
+| `targetProducts` | array | Empty | Up to five structured product definitions with name, optional brand, pack size, and variant. |
+| `searchQueries` | array | `["kurti"]` | Broad product-discovery keywords. Ignored when `targetProducts` is supplied. |
 | `city` | string | `Mumbai` | Location label used by BigBasket, Blinkit, and JioMart. |
 | `latitude` | number | `19.076` | Latitude for location-aware catalogs. |
 | `longitude` | number | `72.8777` | Longitude for location-aware catalogs. |
@@ -108,18 +152,23 @@ Each dataset item follows the same field order for predictable CSV, Excel, JSON,
 | Field group | Fields |
 | --- | --- |
 | Source and identity | `source`, `searchQuery`, `position`, `productId`, `title`, `brand`, `category` |
+| Match decision | `targetProduct`, `matchConfidence`, `matchScore`, `matchReason` |
 | Price and variant | `price`, `mrp`, `discountPercent`, `currency`, `packSize` |
 | Market signals | `rating`, `ratingCount`, `inStock` |
 | Links and timing | `productUrl`, `imageUrl`, `scrapedAt` |
 
 ## Verified Sample Output
 
-The following record came from a successful Myntra run on June 23, 2026.
+The product facts in the following record came from a successful Myntra run on June 23, 2026. The matching fields show how broad keyword discovery is conservatively labeled after the v2 matching upgrade.
 
 ```json
 {
   "source": "myntra",
   "searchQuery": "kurti",
+  "targetProduct": "kurti",
+  "matchConfidence": "likely",
+  "matchScore": 65,
+  "matchReason": "name 1/1 terms",
   "position": 1,
   "productId": "32402499",
   "title": "Sangria Women Embroidered Tie Up Neck Short Top",
@@ -141,7 +190,7 @@ The following record came from a successful Myntra run on June 23, 2026.
 
 ## Historical Cross-Store Comparison Example
 
-This is a public-data capability sample from a successful June 19, 2026 run for `milk`. It demonstrates conservative matching, not live price monitoring or a client report.
+This is a public-data capability sample from a successful June 19, 2026 run for `milk`. It demonstrates conservative matching, not live price monitoring or a client report. The current Actor automates the same confidence discipline and exposes the evidence on each row.
 
 | Product | BigBasket | Blinkit | Difference | Match confidence | Action note |
 | --- | ---: | ---: | --- | --- | --- |
@@ -155,12 +204,14 @@ The Blinkit rows were captured for Mumbai, while the stored BigBasket rows did n
 
 Before a product is saved, the Actor normalizes and validates it:
 
-- every row has the same 18 output fields in the same order
+- every row has the same 22 output fields in the same order
 - numeric fields are finite numbers or `null`
 - missing text uses `N/A` only where that is clearer in spreadsheets
 - product and image links are absolute HTTP(S) URLs or `null`
 - invalid or duplicate records are skipped
 - records are saved and charged atomically
+
+Each run also writes `MATCH_REPORT` to the default key-value store. The Output tab links directly to this Markdown report, which keeps the best saved candidate per source and shows any observed price spread.
 
 ## Tips For Better Results
 
@@ -178,6 +229,8 @@ Before a product is saved, the Actor normalizes and validates it:
 - Some sources do not expose stock, rating, image, brand, or MRP data for every listing; those fields remain `null` or `N/A`.
 - AliExpress can return a non-INR currency depending on the public listing response.
 - `maxResults` is shared across selected sources. Capacity unused by an earlier source is made available to later sources.
+- Each structured target receives a small per-source search budget so the first product cannot consume the entire comparison run. Set `maxResults` to at least the number of targets multiplied by the number of sources when every target/source pair matters.
+- Matching is heuristic. Similar names can still describe different variants, bundles, or regional listings, so `likely` and `needs_review` rows require source-page review.
 - A run fails when no selected source produces a valid product, making empty outputs visible in monitoring.
 
 ## Pricing

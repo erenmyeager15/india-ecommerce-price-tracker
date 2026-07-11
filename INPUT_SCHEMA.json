@@ -17,10 +17,58 @@
       },
       "uniqueItems": true
     },
+    "targetProducts": {
+      "title": "Products to compare",
+      "type": "array",
+      "description": "Optional structured targets for cross-store discovery and matching. Add up to five products. The Actor searches for each target, scores candidate listings, and explains the confidence. When omitted, Search queries remain available for broad discovery.",
+      "editor": "schemaBased",
+      "prefill": [
+        {
+          "name": "Amul Gold Full Cream Milk",
+          "brand": "Amul",
+          "packSize": "1 L",
+          "variant": "Gold Full Cream"
+        }
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "title": "Product name",
+            "type": "string",
+            "description": "The product family or exact listing to discover, such as Amul Gold Full Cream Milk.",
+            "editor": "textfield",
+            "minLength": 2
+          },
+          "brand": {
+            "title": "Brand",
+            "type": "string",
+            "description": "Optional expected brand. A conflicting known brand lowers confidence.",
+            "editor": "textfield"
+          },
+          "packSize": {
+            "title": "Pack size",
+            "type": "string",
+            "description": "Optional comparable quantity, such as 1 L, 500 g, or 2 x 200 ml.",
+            "editor": "textfield"
+          },
+          "variant": {
+            "title": "Variant / model",
+            "type": "string",
+            "description": "Optional distinguishing words such as Gold Full Cream, Toned, 128 GB, or Blue.",
+            "editor": "textfield"
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
     "searchQueries": {
       "title": "Search queries",
       "type": "array",
-      "description": "Product keywords to search, such as milk, kurti, tshirts, skincare, phone case, or wireless earbuds. Use narrow product terms for cleaner competitor matching.",
+      "description": "Broad discovery mode for keywords such as milk, kurti, skincare, or wireless earbuds. Ignored when Products to compare is supplied.",
       "editor": "stringList",
       "default": ["kurti"],
       "items": { "type": "string" }
