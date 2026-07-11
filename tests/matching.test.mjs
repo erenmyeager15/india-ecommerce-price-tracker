@@ -5,7 +5,7 @@ import {
   buildComparisonReport,
   normalizeProductTargets,
 } from '../dist/matching.js';
-import { normalizeProductRecord } from '../dist/utils.js';
+import { appendProductCandidates, normalizeProductRecord } from '../dist/utils.js';
 
 function product(overrides = {}) {
   return normalizeProductRecord({
@@ -113,4 +113,13 @@ test('the report keeps the best candidate per source and shows price spread', ()
   assert.match(report, /Observed price spread: INR 2/);
   assert.doesNotMatch(report, /weaker-bigbasket-candidate/);
   assert.match(report, /No candidate was saved for this target/);
+});
+
+test('per-query capacity keeps the first target from consuming the whole source budget', () => {
+  const records = [];
+  const firstQuery = [product({ productId: 'first-1' }), product({ productId: 'first-2' })];
+  const secondQuery = [product({ searchQuery: 'second', productId: 'second-1' })];
+  assert.equal(appendProductCandidates(records, firstQuery, firstQuery[0].searchQuery, 2, 1), 1);
+  assert.equal(appendProductCandidates(records, secondQuery, 'second', 2, 1), 1);
+  assert.deepEqual(records.map((record) => record.productId), ['first-1', 'second-1']);
 });

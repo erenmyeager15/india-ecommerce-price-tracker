@@ -91,6 +91,7 @@ export interface ProductRecord {
 export interface SourceContext {
   input: NormalizedInput;
   maxResults: number;
+  maxResultsPerQuery?: number;
   proxyConfiguration?: {
     newUrl(sessionId?: string): Promise<string | undefined>;
   };

@@ -1,6 +1,6 @@
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { cleanText, discountFromPrices, numberOrNull, parseCompactCount, slugify, withDefaults } from '../utils.js';
+import { appendProductCandidates, cleanText, discountFromPrices, numberOrNull, parseCompactCount, slugify, withDefaults } from '../utils.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -144,7 +144,7 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
       await Promise.allSettled([...responseTasks]);
       page.off('response', responseHandler);
       const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
-      records.push(...products.slice(0, context.maxResults - records.length));
+      appendProductCandidates(records, products, searchQuery, context.maxResults, context.maxResultsPerQuery);
     },
     failedRequestHandler: async ({ request }, error) => {
       console.warn(`Blinkit request failed: ${request.url} ${String(error)}`);

@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
+import { appendProductCandidates, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.flipkart.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36';
@@ -133,13 +133,16 @@ export async function scrapeFlipkart(context: SourceContext): Promise<ProductRec
   const records: ProductRecord[] = [];
   for (const query of context.input.searchQueries) {
     let position = 1;
+    let querySaved = 0;
+    const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       const html = await fetchHtml(buildSearchUrl(query, page), context);
       if (!html) break;
       const parsed = parseSearchResults(html, query, position);
       if (parsed.length === 0) break;
-      records.push(...parsed.slice(0, context.maxResults - records.length));
+      querySaved += appendProductCandidates(records, parsed, query, context.maxResults, queryLimit);
       position += parsed.length;
+      if (querySaved >= queryLimit) break;
       await sleep(600 + Math.floor(Math.random() * 700));
     }
     if (records.length >= context.maxResults) break;

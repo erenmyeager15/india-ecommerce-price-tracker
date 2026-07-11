@@ -1,6 +1,6 @@
 import { gotScraping } from 'got-scraping';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { absoluteUrl, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
+import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.bigbasket.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36';
@@ -87,6 +87,8 @@ async function fetchPage(query: string, page: number, proxyUrl?: string): Promis
 export async function scrapeBigBasket(context: SourceContext): Promise<ProductRecord[]> {
   const records: ProductRecord[] = [];
   for (const [queryIndex, query] of context.input.searchQueries.entries()) {
+    let querySaved = 0;
+    const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       let result: Awaited<ReturnType<typeof fetchPage>> | null = null;
       let lastError: unknown;
@@ -102,7 +104,8 @@ export async function scrapeBigBasket(context: SourceContext): Promise<ProductRe
       }
       if (!result) throw lastError instanceof Error ? lastError : new Error(String(lastError));
       if (result.products.length === 0) break;
-      records.push(...result.products.slice(0, context.maxResults - records.length));
+      querySaved += appendProductCandidates(records, result.products, query, context.maxResults, queryLimit);
+      if (querySaved >= queryLimit) break;
       if (page >= result.pages) break;
       await sleep(500 + Math.floor(Math.random() * 800));
     }

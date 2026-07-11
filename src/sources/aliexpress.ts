@@ -1,7 +1,7 @@
 import type { Page } from 'playwright';
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { cleanText, numberOrNull, parseCompactCount, redactText, sleep, withDefaults } from '../utils.js';
+import { appendProductCandidates, cleanText, numberOrNull, parseCompactCount, redactText, sleep, withDefaults } from '../utils.js';
 
 function buildSearchUrl(query: string, pageNumber: number): string {
   const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'products';
@@ -163,7 +163,7 @@ export async function scrapeAliExpress(context: SourceContext): Promise<ProductR
       }
       await scrollSearchResults(page);
       const products = await extractProducts(page, searchQuery, pageNumber);
-      records.push(...products.slice(0, context.maxResults - records.length));
+      appendProductCandidates(records, products, searchQuery, context.maxResults, context.maxResultsPerQuery);
     },
     failedRequestHandler: async ({ request }, error) => {
       console.warn(`AliExpress request failed: ${request.url} ${String(error)}`);

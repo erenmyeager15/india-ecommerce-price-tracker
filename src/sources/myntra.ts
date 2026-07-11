@@ -1,6 +1,6 @@
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { absoluteUrl, cleanText, discountFromPrices, numberOrNull, redactText, sleep, uniqueStrings, withDefaults } from '../utils.js';
+import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, numberOrNull, redactText, sleep, uniqueStrings, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.myntra.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36';
@@ -129,14 +129,17 @@ export async function scrapeMyntra(context: SourceContext): Promise<ProductRecor
   const records: ProductRecord[] = [];
   for (const query of context.input.searchQueries) {
     let position = 1;
+    let querySaved = 0;
+    const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       const html = await fetchHtml(buildSearchUrl(query, page), context);
       if (!html) break;
       const products = productsFromMyx(extractMyxData(html));
       if (products.length === 0) break;
       const mapped = products.map((product, index) => toRecord(product, query, position + index)).filter((item): item is ProductRecord => item !== null);
-      records.push(...mapped.slice(0, context.maxResults - records.length));
+      querySaved += appendProductCandidates(records, mapped, query, context.maxResults, queryLimit);
       position += products.length;
+      if (querySaved >= queryLimit) break;
       await sleep(700 + Math.floor(Math.random() * 700));
     }
     if (records.length >= context.maxResults) break;

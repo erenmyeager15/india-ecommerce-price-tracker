@@ -92,25 +92,16 @@ async function run(): Promise<void> {
     // under-delivering source is automatically available to later sources.
     const sourceLimit = Math.max(1, Math.ceil(remainingCapacity / remainingSources));
     const runner = RUNNERS[source];
-    const records: ProductRecord[] = [];
     const perTargetLimit = Math.max(1, Math.ceil(sourceLimit / input.targetProducts.length));
+    let records: ProductRecord[] = [];
 
     try {
-      for (const target of input.targetProducts) {
-        try {
-          const targetInput: NormalizedInput = {
-            ...input,
-            searchQueries: [target.searchQuery],
-            targetProducts: [target],
-          };
-          const targetRecords = await runner({ input: targetInput, maxResults: perTargetLimit, proxyConfiguration });
-          records.push(...targetRecords);
-        } catch (error) {
-          log.warning(`Source ${source} failed for target ${target.name}; continuing with other targets.`, {
-            error: (error as Error).message,
-          });
-        }
-      }
+      records = await runner({
+        input,
+        maxResults: sourceLimit,
+        maxResultsPerQuery: perTargetLimit,
+        proxyConfiguration,
+      });
       log.info(`Source ${source} returned ${records.length} candidate products.`);
     } catch (error) {
       log.warning(`Source ${source} failed; continuing with remaining sources.`, { error: (error as Error).message });

@@ -1,6 +1,6 @@
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { absoluteUrl, cleanText, discountFromPrices, numberOrNull, redactText, withDefaults } from '../utils.js';
+import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, numberOrNull, redactText, withDefaults } from '../utils.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -179,7 +179,7 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
         throw new Error(`JioMart challenge page after search for ${searchQuery}`);
       }
       const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
-      records.push(...products.slice(0, context.maxResults - records.length));
+      appendProductCandidates(records, products, searchQuery, context.maxResults, context.maxResultsPerQuery);
     },
     failedRequestHandler: async ({ request }, error) => {
       console.warn(`JioMart request failed: ${request.url} ${String(error)}`);

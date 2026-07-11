@@ -78,6 +78,20 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function appendProductCandidates(
+  records: ProductRecord[],
+  candidates: ProductRecord[],
+  searchQuery: string,
+  maxResults: number,
+  maxResultsPerQuery = maxResults,
+): number {
+  const queryCount = records.filter((record) => record.searchQuery === searchQuery).length;
+  const capacity = Math.max(0, Math.min(maxResults - records.length, maxResultsPerQuery - queryCount));
+  const selected = candidates.slice(0, capacity);
+  records.push(...selected);
+  return selected.length;
+}
+
 export function slugify(value: string): string {
   return value
     .toLowerCase()

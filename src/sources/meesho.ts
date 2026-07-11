@@ -1,6 +1,6 @@
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
-import { absoluteUrl, boolOrNull, cleanText, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
+import { absoluteUrl, appendProductCandidates, boolOrNull, cleanText, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.meesho.com';
 const SEARCH_API = `${ORIGIN}/api/v1/products/search`;
@@ -101,6 +101,8 @@ export async function scrapeMeesho(context: SourceContext): Promise<ProductRecor
   for (const query of context.input.searchQueries) {
     let cursor: string | null = null;
     let searchSessionId: string | null = null;
+    let querySaved = 0;
+    const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       const response = await fetchPage(context, query, page, cursor, searchSessionId);
       const catalogs = Array.isArray(response.catalogs) ? response.catalogs : [];
@@ -109,7 +111,8 @@ export async function scrapeMeesho(context: SourceContext): Promise<ProductRecor
       if (catalogs.length === 0) break;
       const mapped = catalogs.map((catalog: unknown, index: number) => toRecord(catalog, query, (page - 1) * PAGE_SIZE + index + 1))
         .filter((item: ProductRecord | null): item is ProductRecord => item !== null);
-      records.push(...mapped.slice(0, context.maxResults - records.length));
+      querySaved += appendProductCandidates(records, mapped, query, context.maxResults, queryLimit);
+      if (querySaved >= queryLimit) break;
       if (!cursor) break;
       await sleep(650 + Math.floor(Math.random() * 700));
     }
