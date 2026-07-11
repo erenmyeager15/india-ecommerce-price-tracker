@@ -226,6 +226,7 @@ Each run also writes `MATCH_REPORT` to the default key-value store. The Output t
 
 - Marketplace layouts, public APIs, anti-bot systems, and regional catalogs can change without notice.
 - Location-aware results can differ by city, coordinates, inventory zone, and run time.
+- Blinkit browser searches can be slow and may return zero candidates when the public search payload is unavailable. Start with BigBasket for predictable matching validation; a cross-store price spread appears only when at least two sources return candidates.
 - Some sources do not expose stock, rating, image, brand, or MRP data for every listing; those fields remain `null` or `N/A`.
 - AliExpress can return a non-INR currency depending on the public listing response.
 - `maxResults` is shared across selected sources. Capacity unused by an earlier source is made available to later sources.
