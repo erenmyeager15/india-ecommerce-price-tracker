@@ -7,9 +7,9 @@
     "sources": {
       "title": "Sources",
       "type": "array",
-      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run. For small agent calls, start with one reliable source such as Myntra.",
+      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run. The prefilled first run uses BigBasket with an India residential proxy.",
       "editor": "select",
-      "default": ["myntra"],
+      "default": ["bigbasket"],
       "items": {
         "type": "string",
         "enum": ["flipkart", "myntra", "bigbasket", "blinkit", "jiomart", "meesho", "aliexpress"],
@@ -70,7 +70,7 @@
       "type": "array",
       "description": "Broad discovery mode for keywords such as milk, kurti, skincare, or wireless earbuds. Ignored when Products to compare is supplied.",
       "editor": "stringList",
-      "default": ["kurti"],
+      "default": ["milk"],
       "items": { "type": "string" }
     },
     "city": {
@@ -127,9 +127,9 @@
     "maxResults": {
       "title": "Maximum product records",
       "type": "integer",
-      "description": "Maximum clean product records to save across all selected sources. Use 5-20 for small price-intelligence reports; increase only for deliberate category monitoring.",
+      "description": "Maximum clean product records to save across all selected sources. Keep 1 for the first run, use 5-20 for small price-intelligence reports, and increase only for deliberate category monitoring.",
       "editor": "number",
-      "default": 10,
+      "default": 1,
       "minimum": 1,
       "maximum": 1000
     },
@@ -145,10 +145,12 @@
     "proxyConfiguration": {
       "title": "Proxy configuration",
       "type": "object",
-      "description": "Optional proxy settings. Start without a proxy for Myntra; use an India residential proxy if a selected marketplace blocks or localizes requests.",
+      "description": "Proxy settings. The prefilled BigBasket run uses an India residential proxy because marketplace responses can be blocked or localized without one.",
       "editor": "proxy",
       "default": {
-        "useApifyProxy": false
+        "useApifyProxy": true,
+        "apifyProxyGroups": ["RESIDENTIAL"],
+        "apifyProxyCountry": "IN"
       }
     }
   },
