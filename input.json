@@ -1,12 +1,21 @@
 {
-  "sources": ["myntra"],
-  "searchQueries": ["kurti"],
+  "sources": ["bigbasket"],
+  "targetProducts": [
+    {
+      "name": "Amul Gold Full Cream Milk",
+      "brand": "Amul",
+      "packSize": "1 L",
+      "variant": "Gold Full Cream"
+    }
+  ],
   "city": "Mumbai",
   "latitude": 19.076,
   "longitude": 72.8777,
-  "maxResults": 3,
+  "maxResults": 1,
   "maxPagesPerQuery": 1,
   "proxyConfiguration": {
-    "useApifyProxy": false
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "IN"
   }
 }

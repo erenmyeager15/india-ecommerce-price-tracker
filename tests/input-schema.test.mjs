@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const schemaUrl = new URL('../INPUT_SCHEMA.json', import.meta.url);
 const schema = JSON.parse(await readFile(schemaUrl, 'utf8'));
+const exampleInput = JSON.parse(await readFile(new URL('../input.json', import.meta.url), 'utf8'));
+const actor = JSON.parse(await readFile(new URL('../.actor/actor.json', import.meta.url), 'utf8'));
 
 test('prefilled QA run is coherent, bounded, and proxy-backed', () => {
   const properties = schema.properties;
@@ -18,4 +20,16 @@ test('prefilled QA run is coherent, bounded, and proxy-backed', () => {
   assert.equal(proxy.useApifyProxy, true);
   assert.deepEqual(proxy.apifyProxyGroups, ['RESIDENTIAL']);
   assert.equal(proxy.apifyProxyCountry, 'IN');
+});
+
+test('example input and runtime resources stay aligned with QA defaults', () => {
+  assert.deepEqual(exampleInput.sources, ['bigbasket']);
+  assert.match(exampleInput.targetProducts[0].name, /amul.*milk/i);
+  assert.equal(exampleInput.maxResults, 1);
+  assert.equal(exampleInput.maxPagesPerQuery, 1);
+  assert.equal(exampleInput.proxyConfiguration.useApifyProxy, true);
+  assert.deepEqual(exampleInput.proxyConfiguration.apifyProxyGroups, ['RESIDENTIAL']);
+  assert.equal(exampleInput.proxyConfiguration.apifyProxyCountry, 'IN');
+  assert.equal(actor.defaultRunOptions.memoryMbytes, 1024);
+  assert.equal(actor.minMemoryMbytes, 1024);
 });
