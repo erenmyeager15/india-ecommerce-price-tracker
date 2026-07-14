@@ -15,6 +15,8 @@ function cleanUrl(href: string | undefined): string | null {
   const absolute = href.replace(/&amp;/g, '&').startsWith('http') ? href.replace(/&amp;/g, '&') : `${ORIGIN}${href.replace(/&amp;/g, '&')}`;
   try {
     const url = new URL(absolute);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    if (hostname !== 'flipkart.com') return null;
     for (const key of [...url.searchParams.keys()]) {
       if (!['pid', 'lid', 'marketplace'].includes(key)) url.searchParams.delete(key);
     }
@@ -49,6 +51,7 @@ function parseCard($: cheerio.CheerioAPI, el: any, searchQuery: string, position
   const priceDisplay = text($, el, '.hZ3P6w');
   const mrpDisplay = text($, el, '.kRYCnD');
   const price = numberOrNull(priceDisplay);
+  if (price === null) return null;
   const parsedMrp = numberOrNull(mrpDisplay);
   const mrp = parsedMrp !== null && price !== null && parsedMrp > price ? parsedMrp : null;
   const discountText = text($, el, '.HQe8jr')
@@ -79,7 +82,7 @@ function parseCard($: cheerio.CheerioAPI, el: any, searchQuery: string, position
   });
 }
 
-function parseSearchResults(html: string, searchQuery: string, startPosition: number): ProductRecord[] {
+export function parseFlipkartSearchResults(html: string, searchQuery: string, startPosition: number): ProductRecord[] {
   const $ = cheerio.load(html);
   const records: ProductRecord[] = [];
   const seen = new Set<string>();
@@ -94,6 +97,24 @@ function parseSearchResults(html: string, searchQuery: string, startPosition: nu
   return records;
 }
 
+export type FlipkartHtmlClassification =
+  | { kind: 'products'; products: ProductRecord[] }
+  | { kind: 'empty'; products: [] }
+  | { kind: 'invalid'; products: []; reason: string };
+
+export function classifyFlipkartHtml(html: string, searchQuery: string, startPosition: number): FlipkartHtmlClassification {
+  const textContent = cheerio.load(html)('body').text().replace(/\s+/g, ' ').trim();
+  const products = parseFlipkartSearchResults(html, searchQuery, startPosition);
+  if (products.length > 0) return { kind: 'products', products };
+  if (/access denied|captcha|verify you are human|request blocked|unusual traffic/i.test(textContent)) {
+    return { kind: 'invalid', products: [], reason: 'Flipkart returned a challenge page' };
+  }
+  if (/sorry,? no results|no results found|did not match any products|couldn't find any results/i.test(textContent)) {
+    return { kind: 'empty', products: [] };
+  }
+  return { kind: 'invalid', products: [], reason: 'Flipkart HTML contained neither product cards nor an explicit no-results state' };
+}
+
 function buildSearchUrl(query: string, page: number): string {
   const url = new URL(`${ORIGIN}/search`);
   url.searchParams.set('q', query);
@@ -101,7 +122,8 @@ function buildSearchUrl(query: string, page: number): string {
   return url.toString();
 }
 
-async function fetchHtml(url: string, context: SourceContext): Promise<string | null> {
+async function fetchHtml(url: string, context: SourceContext): Promise<string> {
+  let lastError = new Error(`Flipkart request failed for ${url}`);
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const proxyUrl = await context.proxyConfiguration?.newUrl(`flipkart_${attempt}`);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
@@ -114,19 +136,29 @@ async function fetchHtml(url: string, context: SourceContext): Promise<string | 
           pragma: 'no-cache',
           'user-agent': USER_AGENT,
         },
+        signal: AbortSignal.timeout(45_000),
         ...(dispatcher ? { dispatcher } : {}),
       } as any);
       if ([403, 429, 529].includes(response.status)) {
+        lastError = new Error(`Flipkart was blocked or rate-limited with HTTP ${response.status}`);
         await sleep(900 * attempt);
         continue;
       }
-      if (!response.ok) return null;
+      if (response.status >= 500) {
+        lastError = new Error(`Flipkart returned transient HTTP ${response.status}`);
+        await sleep(900 * attempt);
+        continue;
+      }
+      if (!response.ok) throw new Error(`Flipkart returned HTTP ${response.status}`);
       return await response.text();
-    } catch {
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
       await sleep(700 * attempt);
+    } finally {
+      if (dispatcher) await dispatcher.close().catch(() => undefined);
     }
   }
-  return null;
+  throw lastError;
 }
 
 export async function scrapeFlipkart(context: SourceContext): Promise<ProductRecord[]> {
@@ -137,9 +169,10 @@ export async function scrapeFlipkart(context: SourceContext): Promise<ProductRec
     const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       const html = await fetchHtml(buildSearchUrl(query, page), context);
-      if (!html) break;
-      const parsed = parseSearchResults(html, query, position);
-      if (parsed.length === 0) break;
+      const payload = classifyFlipkartHtml(html, query, position);
+      if (payload.kind === 'invalid') throw new Error(payload.reason);
+      if (payload.kind === 'empty') break;
+      const parsed = payload.products;
       querySaved += appendProductCandidates(records, parsed, query, context.maxResults, queryLimit);
       position += parsed.length;
       if (querySaved >= queryLimit) break;

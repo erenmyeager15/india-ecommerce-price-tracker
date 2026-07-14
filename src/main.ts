@@ -1,12 +1,14 @@
 import { Actor, log } from 'apify';
-import type { ActorInput, NormalizedInput, ProductRecord, SourceName, SourceRunner } from './types.js';
-import { applyBestProductMatch, buildComparisonReport, normalizeProductTargets } from './matching.js';
+import type { ActorInput, ProductRecord, SourceName, SourceRunner } from './types.js';
+import { applyBestProductMatch, buildComparisonReport } from './matching.js';
+import { wasPushedRecordSaved } from './billing.js';
+import { normalizeInput } from './input.js';
+import { buildSourceStatusDocument, noResultsError, safeErrorMessage, type SourceRunStatus } from './run-status.js';
 import {
   hasForbiddenField,
-  normalizeProductRecord,
   shouldKeepProduct,
   summarizeProducts,
-  uniqueStrings,
+  normalizeProductRecord,
   validateProductRecord,
 } from './utils.js';
 import { scrapeAliExpress } from './sources/aliexpress.js';
@@ -18,7 +20,6 @@ import { scrapeMeesho } from './sources/meesho.js';
 import { scrapeMyntra } from './sources/myntra.js';
 
 const CHARGE_EVENT = 'product-scraped';
-const ALL_SOURCES: SourceName[] = ['flipkart', 'myntra', 'bigbasket', 'blinkit', 'jiomart', 'meesho', 'aliexpress'];
 const RUNNERS: Record<SourceName, SourceRunner> = {
   flipkart: scrapeFlipkart,
   myntra: scrapeMyntra,
@@ -29,48 +30,24 @@ const RUNNERS: Record<SourceName, SourceRunner> = {
   aliexpress: scrapeAliExpress,
 };
 
-function normalizeSources(values: unknown): SourceName[] {
-  if (!Array.isArray(values)) return ['myntra'];
-  const set = new Set(ALL_SOURCES);
-  const sources = values.map((value) => String(value).trim().toLowerCase()).filter((value): value is SourceName => set.has(value as SourceName));
-  return sources.length ? [...new Set(sources)] : ['myntra'];
-}
-
-function normalizeInput(raw: ActorInput): NormalizedInput {
-  const minPrice = Math.max(Number(raw.minPrice ?? 0), 0);
-  const maxPrice = Math.max(Number(raw.maxPrice ?? 1_000_000), minPrice);
-  const fallbackQueries = uniqueStrings(raw.searchQueries ?? ['kurti']);
-  const targetProducts = normalizeProductTargets(raw.targetProducts, fallbackQueries);
-  return {
-    sources: normalizeSources(raw.sources),
-    searchQueries: uniqueStrings(targetProducts.map((target) => target.searchQuery)),
-    targetProducts,
-    city: String(raw.city ?? 'Mumbai').trim() || 'Mumbai',
-    latitude: Number.isFinite(raw.latitude) ? Number(raw.latitude) : 19.076,
-    longitude: Number.isFinite(raw.longitude) ? Number(raw.longitude) : 72.8777,
-    brands: new Set(uniqueStrings(raw.brands ?? []).map((item) => item.toLowerCase())),
-    minPrice,
-    maxPrice,
-    inStockOnly: raw.inStockOnly === true,
-    maxResults: Math.min(Math.max(Math.floor(Number(raw.maxResults ?? 10)), 1), 1000),
-    maxPagesPerQuery: Math.min(Math.max(Math.floor(Number(raw.maxPagesPerQuery ?? 1)), 1), 25),
-    proxyConfiguration: raw.proxyConfiguration ?? {
-      useApifyProxy: false,
-    },
-  };
-}
-
 function uniqueKey(record: ProductRecord): string | null {
   return record.productId ? `${record.source}:${record.productId}` : record.productUrl ? `${record.source}:${record.productUrl}` : null;
 }
 
 async function run(): Promise<void> {
   const input = normalizeInput((await Actor.getInput<ActorInput>()) ?? {});
-  if (input.searchQueries.length === 0) throw new Error('Provide at least one search query.');
-
-  const proxyConfiguration = await Actor.createProxyConfiguration(input.proxyConfiguration as never);
+  const proxyConfiguration = input.proxyConfiguration.useApifyProxy || input.proxyConfiguration.proxyUrls?.length
+    ? await Actor.createProxyConfiguration(input.proxyConfiguration as never)
+    : undefined;
   const seen = new Set<string>();
   const savedRecords: ProductRecord[] = [];
+  const sourceStatuses: SourceRunStatus[] = input.sources.map((source) => ({
+    source,
+    outcome: 'not_run',
+    candidates: 0,
+    saved: 0,
+    durationMillis: 0,
+  }));
   let saved = 0;
   let eventChargeLimitReached = false;
   let fatalBillingError: Error | null = null;
@@ -94,6 +71,7 @@ async function run(): Promise<void> {
     const runner = RUNNERS[source];
     const perTargetLimit = Math.max(1, Math.ceil(sourceLimit / input.targetProducts.length));
     let records: ProductRecord[] = [];
+    const sourceStartedAt = Date.now();
 
     try {
       records = await runner({
@@ -102,9 +80,25 @@ async function run(): Promise<void> {
         maxResultsPerQuery: perTargetLimit,
         proxyConfiguration,
       });
+      sourceStatuses[sourceIndex] = {
+        source,
+        outcome: records.length > 0 ? 'results' : 'empty',
+        candidates: records.length,
+        saved: 0,
+        durationMillis: Date.now() - sourceStartedAt,
+      };
       log.info(`Source ${source} returned ${records.length} candidate products.`);
     } catch (error) {
-      log.warning(`Source ${source} failed; continuing with remaining sources.`, { error: (error as Error).message });
+      const safeError = safeErrorMessage(error);
+      sourceStatuses[sourceIndex] = {
+        source,
+        outcome: 'failed',
+        candidates: 0,
+        saved: 0,
+        durationMillis: Date.now() - sourceStartedAt,
+        error: safeError,
+      };
+      log.warning(`Source ${source} failed; continuing with remaining sources.`, { error: safeError });
       continue;
     }
 
@@ -131,13 +125,13 @@ async function run(): Promise<void> {
 
       try {
         const chargeResult = await Actor.pushData(matchedRecord, CHARGE_EVENT);
-        const recordWasSaved = chargeResult.chargedCount > 0
-          || !chargeResult.eventChargeLimitReached;
+        const recordWasSaved = wasPushedRecordSaved(chargeResult);
 
         if (recordWasSaved) {
           seen.add(key);
           savedRecords.push(matchedRecord);
           saved += 1;
+          sourceStatuses[sourceIndex].saved += 1;
         }
 
         if (chargeResult.eventChargeLimitReached) {
@@ -161,18 +155,26 @@ async function run(): Promise<void> {
   }
 
   if (fatalBillingError) throw fatalBillingError;
-  if (saved === 0 && !eventChargeLimitReached) {
-    throw new Error('India E-commerce Price Tracker finished with no saved products.');
-  }
-
   await Actor.setValue('MATCH_REPORT', buildComparisonReport(savedRecords, input), {
     contentType: 'text/markdown; charset=utf-8',
   });
+  await Actor.setValue('SOURCE_STATUS', buildSourceStatusDocument(sourceStatuses, saved, eventChargeLimitReached));
+
+  if (saved === 0 && !eventChargeLimitReached) throw noResultsError(sourceStatuses);
 
   log.info('India E-commerce Price Tracker summary', summarizeProducts(savedRecords, input));
+  if (!eventChargeLimitReached) {
+    const issueCount = sourceStatuses.filter((status) => status.outcome === 'failed').length;
+    await Actor.setStatusMessage(`Finished with ${saved} products${issueCount ? `; ${issueCount} source issue(s)` : ''}`);
+  }
   log.info(`Finished India E-commerce Price Tracker with ${saved} clean product records.`);
 }
 
 await Actor.init();
-await run();
-await Actor.exit();
+try {
+  await run();
+  await Actor.exit();
+} catch (error) {
+  log.exception(error instanceof Error ? error : new Error(String(error)), 'India E-commerce Price Tracker failed');
+  await Actor.fail(`Failed: ${safeErrorMessage(error)}`);
+}

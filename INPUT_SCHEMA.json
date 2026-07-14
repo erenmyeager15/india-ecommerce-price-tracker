@@ -3,6 +3,7 @@
   "description": "Search Indian e-commerce sources for product price records that can feed competitor price reports, price-history baselines, and product-matching workflows.",
   "type": "object",
   "schemaVersion": 1,
+  "additionalProperties": false,
   "properties": {
     "sources": {
       "title": "Sources",
@@ -15,7 +16,9 @@
         "enum": ["flipkart", "myntra", "bigbasket", "blinkit", "jiomart", "meesho", "aliexpress"],
         "enumTitles": ["Flipkart", "Myntra", "BigBasket", "Blinkit", "JioMart", "Meesho", "AliExpress"]
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 7
     },
     "targetProducts": {
       "title": "Products to compare",
@@ -38,25 +41,29 @@
             "type": "string",
             "description": "The product family or exact listing to discover, such as Amul Gold Full Cream Milk.",
             "editor": "textfield",
-            "minLength": 2
+            "minLength": 2,
+            "maxLength": 200
           },
           "brand": {
             "title": "Brand",
             "type": "string",
             "description": "Optional expected brand. A conflicting known brand lowers confidence.",
-            "editor": "textfield"
+            "editor": "textfield",
+            "maxLength": 100
           },
           "packSize": {
             "title": "Pack size",
             "type": "string",
             "description": "Optional comparable quantity, such as 1 L, 500 g, or 2 x 200 ml.",
-            "editor": "textfield"
+            "editor": "textfield",
+            "maxLength": 100
           },
           "variant": {
             "title": "Variant / model",
             "type": "string",
             "description": "Optional distinguishing words such as Gold Full Cream, Toned, 128 GB, or Blue.",
-            "editor": "textfield"
+            "editor": "textfield",
+            "maxLength": 100
           }
         },
         "required": ["name"],
@@ -71,35 +78,45 @@
       "description": "Broad discovery mode for keywords such as milk, kurti, skincare, or wireless earbuds. Ignored when Products to compare is supplied.",
       "editor": "stringList",
       "default": ["milk"],
-      "items": { "type": "string" }
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "maxItems": 10,
+      "uniqueItems": true
     },
     "city": {
       "title": "City / location name",
       "type": "string",
       "description": "Used for location-aware sources such as BigBasket, Blinkit, and JioMart.",
       "editor": "textfield",
-      "default": "Mumbai"
+      "default": "Mumbai",
+      "minLength": 1,
+      "maxLength": 100
     },
     "latitude": {
       "title": "Latitude",
       "type": "number",
       "description": "Latitude for location-aware sources.",
       "editor": "number",
-      "default": 19.076
+      "default": 19.076,
+      "minimum": -90,
+      "maximum": 90
     },
     "longitude": {
       "title": "Longitude",
       "type": "number",
       "description": "Longitude for location-aware sources.",
       "editor": "number",
-      "default": 72.8777
+      "default": 72.8777,
+      "minimum": -180,
+      "maximum": 180
     },
     "brands": {
       "title": "Brand filter",
       "type": "array",
       "description": "Optional exact brand filters for competitor/product matching. Leave empty to keep all brands.",
       "editor": "stringList",
-      "items": { "type": "string" }
+      "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+      "maxItems": 20,
+      "uniqueItems": true
     },
     "minPrice": {
       "title": "Minimum price",
@@ -107,7 +124,8 @@
       "description": "Minimum product price to keep.",
       "editor": "number",
       "default": 0,
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 1000000
     },
     "maxPrice": {
       "title": "Maximum price",
@@ -115,7 +133,8 @@
       "description": "Maximum product price to keep.",
       "editor": "number",
       "default": 1000000,
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 1000000
     },
     "inStockOnly": {
       "title": "In-stock only",

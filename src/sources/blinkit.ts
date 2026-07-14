@@ -26,11 +26,15 @@ function buildSearchUrl(query: string): string {
   return `https://blinkit.com/s/?q=${encodeURIComponent(query)}`;
 }
 
-function isBlockedText(title: string, body: string): boolean {
+export function isBlinkitBlockedText(title: string, body: string): boolean {
   return /access denied|just a moment|verify you are human|cf-chl-|request blocked|captcha/i.test(`${title}\n${body}`);
 }
 
-function extractProducts(payloads: unknown[], searchQuery: string): ProductRecord[] {
+export function isBlinkitExplicitEmptyText(body: string): boolean {
+  return /no products? found|no results? found|couldn't find any products|try searching for something else/i.test(body);
+}
+
+export function extractBlinkitProducts(payloads: unknown[], searchQuery: string): ProductRecord[] {
   const products = new Map<string, ProductRecord>();
   let position = 0;
   const visit = (value: unknown): void => {
@@ -44,8 +48,9 @@ function extractProducts(payloads: unknown[], searchQuery: string): ProductRecor
     const title = cleanText(cartItem?.product_name) ?? textValue(value.display_name) ?? textValue(value.name);
     if (cartItem && productId && title && !products.has(productId)) {
       const price = numberOrNull(cartItem.price);
-      const mrp = numberOrNull(cartItem.mrp);
       if (price !== null) {
+        const candidateMrp = numberOrNull(cartItem.mrp);
+        const mrp = candidateMrp !== null && candidateMrp >= price ? candidateMrp : null;
         position += 1;
         const inventory = numberOrNull(cartItem.inventory);
         const ratingBar = asObject(asObject(value.rating)?.bar);
@@ -79,6 +84,8 @@ function extractProducts(payloads: unknown[], searchQuery: string): ProductRecor
 
 export async function scrapeBlinkit(context: SourceContext): Promise<ProductRecord[]> {
   const records: ProductRecord[] = [];
+  let failedRequestCount = 0;
+  let usableRequestCount = 0;
   const requests = context.input.searchQueries.map((searchQuery) => ({
     url: buildSearchUrl(searchQuery),
     uniqueKey: `blinkit-${searchQuery.toLowerCase()}`,
@@ -125,32 +132,65 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
         responseTasks.add(task);
       };
       page.on('response', responseHandler);
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 }).catch(() => undefined);
-      await page.waitForTimeout(5_000);
-      const title = await page.title();
-      const body = await page.locator('body').innerText().catch(() => '');
-      if (isBlockedText(title, body)) {
-        session?.markBad();
-        throw new Error(`Blinkit challenge page detected for ${request.url}`);
+      try {
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 }).catch(() => undefined);
+        await page.waitForTimeout(5_000);
+        let title = await page.title();
+        let body = await page.locator('body').innerText().catch(() => '');
+        if (isBlinkitBlockedText(title, body)) {
+          session?.markBad();
+          throw new Error(`Blinkit challenge page detected for ${request.url}`);
+        }
+        if (payloads.length === 0 && !body.toLowerCase().includes(searchQuery.toLowerCase())) {
+          await page.waitForTimeout(5_000);
+          title = await page.title();
+          body = await page.locator('body').innerText().catch(() => '');
+        }
+        if (isBlinkitBlockedText(title, body)) {
+          session?.markBad();
+          throw new Error(`Blinkit challenge page detected for ${request.url}`);
+        }
+        if (payloads.length === 0 && isBlinkitExplicitEmptyText(body)) {
+          usableRequestCount += 1;
+          return;
+        }
+        if (payloads.length === 0 && !body.toLowerCase().includes(searchQuery.toLowerCase())) {
+          throw new Error(`Blinkit did not return a usable search page for "${searchQuery}".`);
+        }
+        let idleRounds = 0;
+        for (let round = 0; round < context.input.maxPagesPerQuery * 3 && payloads.length < context.input.maxPagesPerQuery; round += 1) {
+          const before = payloads.length;
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(1_200 + Math.floor(Math.random() * 1_300));
+          idleRounds = payloads.length === before ? idleRounds + 1 : 0;
+          if (idleRounds >= 3) break;
+        }
+        await Promise.allSettled([...responseTasks]);
+        const products = extractBlinkitProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
+        if (products.length === 0 && isBlinkitExplicitEmptyText(body)) {
+          usableRequestCount += 1;
+          return;
+        }
+        if (products.length === 0) {
+          session?.markBad();
+          throw new Error(`No Blinkit product records found for "${searchQuery}".`);
+        }
+        appendProductCandidates(records, products, searchQuery, context.maxResults, context.maxResultsPerQuery);
+        usableRequestCount += 1;
+      } finally {
+        await Promise.allSettled([...responseTasks]);
+        page.off('response', responseHandler);
       }
-      let idleRounds = 0;
-      for (let round = 0; round < context.input.maxPagesPerQuery * 3 && payloads.length < context.input.maxPagesPerQuery; round += 1) {
-        const before = payloads.length;
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await page.waitForTimeout(1_200 + Math.floor(Math.random() * 1_300));
-        idleRounds = payloads.length === before ? idleRounds + 1 : 0;
-        if (idleRounds >= 3) break;
-      }
-      await Promise.allSettled([...responseTasks]);
-      page.off('response', responseHandler);
-      const products = extractProducts(payloads.slice(0, context.input.maxPagesPerQuery), searchQuery);
-      appendProductCandidates(records, products, searchQuery, context.maxResults, context.maxResultsPerQuery);
     },
     failedRequestHandler: async ({ request }, error) => {
+      failedRequestCount += 1;
       console.warn(`Blinkit request failed: ${request.url} ${String(error)}`);
     },
   });
 
   await crawler.run(requests);
+  if (records.length === 0 && failedRequestCount > 0 && usableRequestCount === 0) {
+    throw new Error(`Blinkit failed for ${failedRequestCount} request(s) and returned no usable product data.`);
+  }
   return records;
 }

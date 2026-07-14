@@ -35,7 +35,7 @@
   },
   "defaultRunOptions": {
     "build": "latest",
-    "memoryMbytes": 2048,
+    "memoryMbytes": 1024,
     "timeoutSecs": 3600
   },
   "minMemoryMbytes": 1024,

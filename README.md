@@ -25,7 +25,7 @@ The Actor is built for competitor monitoring, assortment research, and recurring
 | Meesho | `meesho` | Value fashion and marketplace catalogs | No |
 | AliExpress | `aliexpress` | Cross-border product comparisons | No |
 
-Each source runs independently. If one source is blocked or changes its page structure, the Actor logs that failure and continues with the remaining selected sources.
+Each source runs independently. If one source is blocked or changes its payload, the Actor records a sanitized failure in `SOURCE_STATUS` and continues with the remaining selected sources. Explicit no-result pages remain distinct from parser or anti-bot failures.
 
 ## Quick Start
 
@@ -71,18 +71,27 @@ Use structured targets when you know the products but not every competitor URL. 
 
 This mode is intended for 3-5 deliberate targets. Confidence remains visible so ambiguous matches can be reviewed instead of silently accepted.
 
-### Lowest-cost first run
+### Store QA-sized first run
 
-This matches the Store sample and uses a source recently verified without a proxy.
+This matches the bounded Store prefill used by Apify's automated quality check.
 
 ```json
 {
-  "sources": ["myntra"],
-  "searchQueries": ["kurti"],
-  "maxResults": 3,
+  "sources": ["bigbasket"],
+  "targetProducts": [
+    {
+      "name": "Amul Gold Full Cream Milk",
+      "brand": "Amul",
+      "packSize": "1 L",
+      "variant": "Gold Full Cream"
+    }
+  ],
+  "maxResults": 1,
   "maxPagesPerQuery": 1,
   "proxyConfiguration": {
-    "useApifyProxy": false
+    "useApifyProxy": true,
+    "apifyProxyGroups": ["RESIDENTIAL"],
+    "apifyProxyCountry": "IN"
   }
 }
 ```
@@ -129,9 +138,9 @@ This matches the Store sample and uses a source recently verified without a prox
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sources` | array | `["myntra"]` | One or more supported marketplace input values. |
+| `sources` | array | `["bigbasket"]` | One or more supported marketplace input values. |
 | `targetProducts` | array | Empty | Up to five structured product definitions with name, optional brand, pack size, and variant. |
-| `searchQueries` | array | `["kurti"]` | Broad product-discovery keywords. Ignored when `targetProducts` is supplied. |
+| `searchQueries` | array | `["milk"]` | Broad product-discovery keywords. Ignored when `targetProducts` is supplied. |
 | `city` | string | `Mumbai` | Location label used by BigBasket, Blinkit, and JioMart. |
 | `latitude` | number | `19.076` | Latitude for location-aware catalogs. |
 | `longitude` | number | `72.8777` | Longitude for location-aware catalogs. |
@@ -139,11 +148,11 @@ This matches the Store sample and uses a source recently verified without a prox
 | `minPrice` | number | `0` | Minimum numeric product price to keep. |
 | `maxPrice` | number | `1000000` | Maximum numeric product price to keep. |
 | `inStockOnly` | boolean | `false` | Keep only records explicitly identified as in stock. |
-| `maxResults` | integer | `10` | Maximum clean records saved across all selected sources, capped at `1000`. |
+| `maxResults` | integer | `1` | Maximum clean records saved across all selected sources, capped at `1000`. |
 | `maxPagesPerQuery` | integer | `1` | Maximum pages or scroll payloads inspected per query and source, capped at `25`. |
-| `proxyConfiguration` | object | No proxy | Optional Apify Proxy settings. India residential proxy is recommended when a source blocks or localizes requests. |
+| `proxyConfiguration` | object | India residential | Optional Apify Proxy settings. Disable it for a deliberate proxy-free test only when the selected source supports that path. |
 
-Brand filters are exact after case normalization. Records with unknown stock are excluded when `inStockOnly` is enabled. Products without a numeric price are retained only when the full default price range is used.
+Brand filters are exact after case normalization. Records with unknown stock are excluded when `inStockOnly` is enabled. Products without a numeric price or a source-owned product URL are never saved or charged.
 
 ## Output Overview
 
@@ -207,15 +216,16 @@ Before a product is saved, the Actor normalizes and validates it:
 - every row has the same 22 output fields in the same order
 - numeric fields are finite numbers or `null`
 - missing text uses `N/A` only where that is clearer in spreadsheets
-- product and image links are absolute HTTP(S) URLs or `null`
+- product links are required source-owned HTTPS URLs; image links are absolute HTTPS URLs or `null`
 - invalid or duplicate records are skipped
 - records are saved and charged atomically
 
-Each run also writes `MATCH_REPORT` to the default key-value store. The Output tab links directly to this Markdown report, which keeps the best saved candidate per source and shows any observed price spread.
+Each run also writes two default key-value-store records. `MATCH_REPORT` keeps the best saved candidate per source and shows any observed price spread. `SOURCE_STATUS` reports every selected source as `results`, `empty`, `failed`, or `not_run`, with candidate count, saved count, duration, and sanitized error details.
 
 ## Tips For Better Results
 
-- Start with one source, one query, one page, and 3-10 results.
+- Start with one source, one query, one page, and 1-3 results.
+- The default run uses 1 GB of memory; increase it only if a larger multi-source browser run proves it needs more.
 - Use broad product terms for discovery and exact brand filters for monitoring.
 - Split unrelated product categories into separate runs so result caps are easier to interpret.
 - Use Mumbai coordinates only as a sample; set the city and coordinates to the quick-commerce market you need.

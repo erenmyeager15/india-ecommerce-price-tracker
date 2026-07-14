@@ -15,6 +15,12 @@
       "title": "Product match report",
       "description": "Markdown report showing the best candidate per source, confidence score, evidence, stock, price, source link, and observed price spread for each target product.",
       "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/MATCH_REPORT"
+    },
+    "sourceStatus": {
+      "type": "string",
+      "title": "Source status",
+      "description": "Per-source outcome, candidate count, saved count, duration, and sanitized failure details for partial multi-source runs.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/SOURCE_STATUS"
     }
   }
 }

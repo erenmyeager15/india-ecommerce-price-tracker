@@ -3,6 +3,15 @@ import type { MatchConfidence, NormalizedInput, ProductRecord } from './types.js
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_PATTERN = /(?<!\w)(?:\+?\d[\d\s().-]*){9,}(?!\w)/g;
 const EMPTY_TEXT_PATTERN = /^(?:undefined|null|nan|n\/a|na)$/i;
+const PRODUCT_HOSTS: Record<string, string> = {
+  flipkart: 'flipkart.com',
+  myntra: 'myntra.com',
+  bigbasket: 'bigbasket.com',
+  blinkit: 'blinkit.com',
+  jiomart: 'jiomart.com',
+  meesho: 'meesho.com',
+  aliexpress: 'aliexpress.com',
+};
 type ProductRecordInput = Partial<Record<keyof ProductRecord, unknown>>;
 
 export const OUTPUT_FIELDS = [
@@ -181,7 +190,7 @@ export function normalizeProductRecord(record: ProductRecordInput): ProductRecor
     price: numberOrNull(record.price),
     mrp: numberOrNull(record.mrp),
     discountPercent: numberOrNull(record.discountPercent),
-    currency: textOrFallback(record.currency, 'INR'),
+    currency: textOrFallback(record.currency, 'INR').toUpperCase(),
     packSize: textOrFallback(record.packSize, 'N/A'),
     category: textOrFallback(record.category, 'N/A'),
     rating: ratingOrNull(record.rating, ratingCount),
@@ -212,14 +221,38 @@ export function validateProductRecord(record: ProductRecord): string[] {
     if (typeof value === 'number' && !Number.isFinite(value)) errors.push(`${key} is not a finite number`);
   }
   if (!record.source || record.source === 'N/A') errors.push('source is required');
+  if (!PRODUCT_HOSTS[record.source]) errors.push('source is unsupported');
   if (!record.searchQuery || record.searchQuery === 'N/A') errors.push('searchQuery is required');
   if (!record.targetProduct || record.targetProduct === 'N/A') errors.push('targetProduct is required');
   if (!['exact', 'high', 'likely', 'needs_review'].includes(record.matchConfidence)) errors.push('matchConfidence is invalid');
   if (record.matchScore < 0 || record.matchScore > 100) errors.push('matchScore must be between 0 and 100');
   if (!record.title || record.title === 'N/A') errors.push('title is required');
+  if (record.price === null || record.price < 0) errors.push('price must be a non-negative number');
+  if (record.mrp !== null && record.mrp < 0) errors.push('mrp must be non-negative or null');
+  if (record.mrp !== null && record.price !== null && record.mrp < record.price) errors.push('mrp must not be lower than price');
+  if (record.discountPercent !== null && (record.discountPercent < 0 || record.discountPercent > 100)) {
+    errors.push('discountPercent must be between 0 and 100 or null');
+  }
+  if (record.rating !== null && (record.rating < 0 || record.rating > 5)) errors.push('rating must be between 0 and 5 or null');
+  if (record.ratingCount !== null && (!Number.isInteger(record.ratingCount) || record.ratingCount < 0)) {
+    errors.push('ratingCount must be a non-negative integer or null');
+  }
+  if (!/^[A-Z]{3}$/.test(record.currency)) errors.push('currency must be a three-letter uppercase code');
+  if (Number.isNaN(Date.parse(record.scrapedAt))) errors.push('scrapedAt must be a valid timestamp');
   for (const key of ['productUrl', 'imageUrl'] as const) {
     const value = record[key];
     if (value !== null && !/^https?:\/\//i.test(value)) errors.push(`${key} must be an absolute URL or null`);
+  }
+  if (record.productUrl === null) {
+    errors.push('productUrl is required');
+  } else if (PRODUCT_HOSTS[record.source]) {
+    try {
+      const hostname = new URL(record.productUrl).hostname.toLowerCase().replace(/^www\./, '');
+      const expected = PRODUCT_HOSTS[record.source];
+      if (hostname !== expected && !hostname.endsWith(`.${expected}`)) errors.push(`productUrl must use ${expected}`);
+    } catch {
+      errors.push('productUrl must be a valid absolute URL');
+    }
   }
   return errors;
 }
@@ -230,7 +263,7 @@ export function shouldKeepProduct(record: ProductRecord, input: NormalizedInput)
     if (brand === 'n/a' || !input.brands.has(brand)) return false;
   }
   if (input.inStockOnly && record.inStock !== true) return false;
-  if (record.price === null) return input.minPrice <= 0 && input.maxPrice >= 1_000_000;
+  if (record.price === null) return false;
   if (record.price < input.minPrice) return false;
   if (record.price > input.maxPrice) return false;
   return true;
@@ -246,9 +279,9 @@ export function parseCompactCount(value: string | null): number | null {
   const parsed = Number.parseFloat(normalized);
   if (!Number.isFinite(parsed)) return null;
   if (/crore|\bcr\b/.test(normalized)) return Math.round(parsed * 10_000_000);
-  if (/lakh|lac|\bl\b/.test(normalized)) return Math.round(parsed * 100_000);
-  if (/\bk\b|thousand/.test(normalized)) return Math.round(parsed * 1_000);
-  if (/\bm\b|million/.test(normalized)) return Math.round(parsed * 1_000_000);
+  if (/lakh|lac|\d(?:\.\d+)?\s*l\b/.test(normalized)) return Math.round(parsed * 100_000);
+  if (/\d(?:\.\d+)?\s*k\b|thousand/.test(normalized)) return Math.round(parsed * 1_000);
+  if (/\d(?:\.\d+)?\s*m\b|million/.test(normalized)) return Math.round(parsed * 1_000_000);
   return Math.round(parsed);
 }
 

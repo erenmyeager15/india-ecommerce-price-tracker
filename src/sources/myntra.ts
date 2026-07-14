@@ -20,6 +20,7 @@ interface MyntraProduct {
   searchImage?: string;
   landingPageUrl?: string;
   images?: Array<{ view?: string; src?: string }>;
+  inventoryInfo?: Array<{ available?: boolean }>;
 }
 
 function slugifyQuery(query: string): string {
@@ -33,11 +34,10 @@ function buildSearchUrl(query: string, page: number): string {
   return url.toString();
 }
 
-function extractMyxData(html: string): unknown | null {
-  const marker = 'window.__myx = ';
-  const start = html.indexOf(marker);
-  if (start < 0) return null;
-  const bodyStart = start + marker.length;
+export function extractMyxData(html: string): unknown | null {
+  const assignment = /window\.__myx\s*=\s*/g.exec(html);
+  if (!assignment) return null;
+  const bodyStart = assignment.index + assignment[0].length;
   const end = html.indexOf('</script>', bodyStart);
   if (end < 0) return null;
   try {
@@ -47,10 +47,22 @@ function extractMyxData(html: string): unknown | null {
   }
 }
 
-function productsFromMyx(data: unknown): MyntraProduct[] {
-  if (!data || typeof data !== 'object') return [];
+export type MyntraPayloadClassification =
+  | { kind: 'products'; products: MyntraProduct[] }
+  | { kind: 'empty'; products: [] }
+  | { kind: 'invalid'; products: []; reason: string };
+
+export function classifyMyxPayload(data: unknown): MyntraPayloadClassification {
+  if (!data || typeof data !== 'object') {
+    return { kind: 'invalid', products: [], reason: 'window.__myx was missing or invalid JSON' };
+  }
   const root = data as { searchData?: { results?: { products?: unknown } } };
-  return Array.isArray(root.searchData?.results?.products) ? root.searchData.results.products as MyntraProduct[] : [];
+  const products = root.searchData?.results?.products;
+  if (!Array.isArray(products)) {
+    return { kind: 'invalid', products: [], reason: 'window.__myx did not contain searchData.results.products' };
+  }
+  if (products.length === 0) return { kind: 'empty', products: [] };
+  return { kind: 'products', products: products as MyntraProduct[] };
 }
 
 function bestImage(product: MyntraProduct): string | null {
@@ -63,18 +75,26 @@ function bestImage(product: MyntraProduct): string | null {
 }
 
 function productUrl(product: MyntraProduct): string | null {
-  return absoluteUrl(cleanText(product.landingPageUrl), ORIGIN);
+  const url = absoluteUrl(cleanText(product.landingPageUrl), ORIGIN);
+  if (!url) return null;
+  const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  return hostname === 'myntra.com' ? url : null;
 }
 
-function toRecord(product: MyntraProduct, query: string, position: number): ProductRecord | null {
+export function toMyntraRecord(product: MyntraProduct, query: string, position: number): ProductRecord | null {
   const title = redactText(product.productName) ?? redactText(product.product);
   const url = productUrl(product);
   if (!title || !url) return null;
   const price = numberOrNull(product.price);
-  const mrp = numberOrNull(product.mrp);
+  if (price === null) return null;
+  const candidateMrp = numberOrNull(product.mrp);
+  const mrp = candidateMrp !== null && candidateMrp >= price ? candidateMrp : null;
   const discountLabel = cleanText(product.discountDisplayLabel);
   const discountPercent = discountFromPrices(price, mrp) ?? numberOrNull(discountLabel?.match(/(\d+)\s*%/)?.[1]);
   const sizes = uniqueStrings(cleanText(product.sizes)?.split(',') ?? []);
+  const availability = product.inventoryInfo
+    ?.map((item) => item.available)
+    .filter((value): value is boolean => typeof value === 'boolean');
 
   return withDefaults({
     source: 'myntra',
@@ -91,13 +111,14 @@ function toRecord(product: MyntraProduct, query: string, position: number): Prod
     category: redactText(product.category),
     rating: numberOrNull(product.rating),
     ratingCount: numberOrNull(product.ratingCount),
-    inStock: null,
+    inStock: availability?.length ? availability.some(Boolean) : null,
     imageUrl: bestImage(product),
     productUrl: url,
   });
 }
 
-async function fetchHtml(url: string, context: SourceContext): Promise<string | null> {
+async function fetchHtml(url: string, context: SourceContext): Promise<string> {
+  let lastError = new Error(`Myntra request failed for ${url}`);
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const proxyUrl = await context.proxyConfiguration?.newUrl(`myntra_${attempt}`);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
@@ -110,19 +131,29 @@ async function fetchHtml(url: string, context: SourceContext): Promise<string | 
           pragma: 'no-cache',
           'user-agent': USER_AGENT,
         },
+        signal: AbortSignal.timeout(45_000),
         ...(dispatcher ? { dispatcher } : {}),
       } as any);
       if ([401, 403, 429, 529].includes(response.status)) {
+        lastError = new Error(`Myntra was blocked or rate-limited with HTTP ${response.status}`);
         await sleep(900 * attempt);
         continue;
       }
-      if (!response.ok) return null;
+      if (response.status >= 500) {
+        lastError = new Error(`Myntra returned transient HTTP ${response.status}`);
+        await sleep(900 * attempt);
+        continue;
+      }
+      if (!response.ok) throw new Error(`Myntra returned HTTP ${response.status}`);
       return await response.text();
-    } catch {
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
       await sleep(800 * attempt);
+    } finally {
+      if (dispatcher) await dispatcher.close().catch(() => undefined);
     }
   }
-  return null;
+  throw lastError;
 }
 
 export async function scrapeMyntra(context: SourceContext): Promise<ProductRecord[]> {
@@ -133,10 +164,12 @@ export async function scrapeMyntra(context: SourceContext): Promise<ProductRecor
     const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       const html = await fetchHtml(buildSearchUrl(query, page), context);
-      if (!html) break;
-      const products = productsFromMyx(extractMyxData(html));
-      if (products.length === 0) break;
-      const mapped = products.map((product, index) => toRecord(product, query, position + index)).filter((item): item is ProductRecord => item !== null);
+      const payload = classifyMyxPayload(extractMyxData(html));
+      if (payload.kind === 'invalid') throw new Error(`Myntra payload invalid: ${payload.reason}`);
+      if (payload.kind === 'empty') break;
+      const products = payload.products;
+      const mapped = products.map((product, index) => toMyntraRecord(product, query, position + index)).filter((item): item is ProductRecord => item !== null);
+      if (mapped.length === 0) throw new Error('Myntra returned product rows but none had a valid title and Myntra URL.');
       querySaved += appendProductCandidates(records, mapped, query, context.maxResults, queryLimit);
       position += products.length;
       if (querySaved >= queryLimit) break;

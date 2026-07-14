@@ -10,6 +10,49 @@ function cookieHeader(setCookie: string[] | string | undefined): string {
   return values.map((value) => value.split(';')[0]).filter(Boolean).join('; ');
 }
 
+export function productsFromBigBasketPayload(data: Record<string, any>, query: string, page: number): { products: ProductRecord[]; pages: number } {
+  if (Array.isArray(data.errors) && data.errors.length > 0) {
+    throw new Error(`BigBasket listing API error: ${cleanText(data.errors[0]?.msg) ?? 'unknown error'}`);
+  }
+  const tabs = Array.isArray(data.tabs) ? data.tabs : null;
+  const productInfo = tabs?.[0]?.product_info;
+  if (!productInfo || !Array.isArray(productInfo.products)) {
+    throw new Error('BigBasket listing API returned an unexpected payload shape.');
+  }
+  const rawProducts: any[] = productInfo.products;
+  const products = rawProducts.flatMap((product, index): ProductRecord[] => {
+    const price = numberOrNull(product.pricing?.discount?.prim_price?.sp);
+    const candidateMrp = numberOrNull(product.pricing?.discount?.mrp);
+    const productId = cleanText(product.id);
+    const title = redactText(product.desc);
+    const rawUrl = cleanText(product.absolute_url);
+    if (price === null || !productId || !title || !rawUrl) return [];
+    const mrp = candidateMrp !== null && candidateMrp >= price ? candidateMrp : null;
+    const inStock = product.availability?.avail_status === '001' && product.availability?.not_for_sale !== true;
+    return [withDefaults({
+      source: 'bigbasket',
+      searchQuery: query,
+      position: ((page - 1) * Math.max(rawProducts.length, 1)) + index + 1,
+      productId,
+      title,
+      brand: redactText(product.brand?.name),
+      price,
+      mrp,
+      discountPercent: discountFromPrices(price, mrp),
+      currency: 'INR',
+      packSize: redactText(product.w),
+      category: redactText(product.category?.tlc_name ?? product.category?.llc_name ?? product.category?.mlc_name),
+      rating: numberOrNull(product.rating_info?.avg_rating),
+      ratingCount: integerOrNull(product.rating_info?.rating_count),
+      inStock,
+      imageUrl: absoluteUrl(cleanText(product.images?.[0]?.l ?? product.images?.[0]?.m ?? product.images?.[0]?.s), ORIGIN),
+      productUrl: absoluteUrl(rawUrl, ORIGIN),
+    })];
+  });
+
+  return { products, pages: integerOrNull(productInfo.number_of_pages) ?? page };
+}
+
 async function fetchPage(query: string, page: number, proxyUrl?: string): Promise<{ products: ProductRecord[]; pages: number }> {
   const landingUrl = `${ORIGIN}/ps/?q=${encodeURIComponent(query)}`;
   const headers = { 'user-agent': USER_AGENT, 'accept-language': 'en-IN,en;q=0.9' };
@@ -50,38 +93,7 @@ async function fetchPage(query: string, page: number, proxyUrl?: string): Promis
   if (response.statusCode >= 400) throw new Error(`BigBasket API HTTP ${response.statusCode}`);
 
   const data = JSON.parse(response.body) as Record<string, any>;
-  const productInfo = data.tabs?.[0]?.product_info ?? {};
-  const rawProducts: any[] = Array.isArray(productInfo.products) ? productInfo.products : [];
-  const products = rawProducts.flatMap((product, index): ProductRecord[] => {
-    const price = numberOrNull(product.pricing?.discount?.prim_price?.sp);
-    const mrp = numberOrNull(product.pricing?.discount?.mrp);
-    const productId = cleanText(product.id);
-    const title = redactText(product.desc);
-    const rawUrl = cleanText(product.absolute_url);
-    if (price === null || !productId || !title || !rawUrl) return [];
-    const inStock = product.availability?.avail_status === '001' && product.availability?.not_for_sale !== true;
-    return [withDefaults({
-      source: 'bigbasket',
-      searchQuery: query,
-      position: ((page - 1) * Math.max(rawProducts.length, 1)) + index + 1,
-      productId,
-      title,
-      brand: redactText(product.brand?.name),
-      price,
-      mrp,
-      discountPercent: discountFromPrices(price, mrp),
-      currency: 'INR',
-      packSize: redactText(product.w),
-      category: redactText(product.category?.tlc_name ?? product.category?.llc_name ?? product.category?.mlc_name),
-      rating: numberOrNull(product.rating_info?.avg_rating),
-      ratingCount: integerOrNull(product.rating_info?.rating_count),
-      inStock,
-      imageUrl: cleanText(product.images?.[0]?.l ?? product.images?.[0]?.m ?? product.images?.[0]?.s),
-      productUrl: absoluteUrl(rawUrl, ORIGIN),
-    })];
-  });
-
-  return { products, pages: integerOrNull(productInfo.number_of_pages) ?? page };
+  return productsFromBigBasketPayload(data, query, page);
 }
 
 export async function scrapeBigBasket(context: SourceContext): Promise<ProductRecord[]> {
