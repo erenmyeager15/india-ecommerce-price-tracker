@@ -224,8 +224,8 @@ Each run also writes two default key-value-store records. `MATCH_REPORT` keeps t
 
 ## Tips For Better Results
 
-- Start with one source, one query, one page, and 1-3 results.
-- The default run uses 1 GB of memory; increase it only if a larger multi-source browser run proves it needs more.
+- Start with one source, one query, one page, and 1-3 results. Use 5-20 results for recurring reports so setup and proxy work are shared across more records.
+- Runs use a fixed 1 GB memory limit to keep platform costs predictable.
 - Use broad product terms for discovery and exact brand filters for monitoring.
 - Split unrelated product categories into separate runs so result caps are easier to interpret.
 - Use Mumbai coordinates only as a sample; set the city and coordinates to the quick-commerce market you need.
@@ -253,7 +253,7 @@ This Actor uses pay-per-event pricing. The currently active Store prices are:
 | `apify-actor-start` | At run start; event count depends on memory (one per GB, minimum one) | `$0.00005` per event |
 | `product-scraped` | One clean product record saved | `$0.002` |
 
-The Actor stops adding records when the user's maximum cost per run is reached. Apify displays the authoritative current event prices before a run; scheduled pricing updates may take effect later than documentation changes.
+Before creating a proxy or requesting a marketplace page, the Actor verifies that the run budget can charge for at least one `product-scraped` event. It stops immediately when that is not possible, and it stops adding records when the user's maximum cost per run is reached. Apify displays the authoritative current event prices before a run; scheduled pricing updates may take effect later than documentation changes.
 
 ## Data Safety
 

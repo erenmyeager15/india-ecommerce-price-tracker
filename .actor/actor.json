@@ -15,15 +15,15 @@
       "actorChargeEvents": {
         "apify-actor-start": {
           "eventTitle": "Actor start",
-          "eventDescription": "Charged when the run starts to cover startup and proxy/session setup across sources. Number of events depends on memory (one per GB, minimum one).",
-          "eventPriceUsd": 0.001,
+          "eventDescription": "Charged when the Actor starts running. Number of events depends on memory (one per GB, minimum one).",
+          "eventPriceUsd": 0.00005,
           "isPrimaryEvent": false,
           "isOneTimeEvent": true
         },
         "product-scraped": {
           "eventTitle": "Product scraped",
           "eventDescription": "Charged once for each clean non-personal product price record saved to the dataset.",
-          "eventPriceUsd": 0.004,
+          "eventPriceUsd": 0.002,
           "isPrimaryEvent": true,
           "isOneTimeEvent": false
         }
@@ -39,5 +39,5 @@
     "timeoutSecs": 3600
   },
   "minMemoryMbytes": 1024,
-  "maxMemoryMbytes": 8192
+  "maxMemoryMbytes": 1024
 }

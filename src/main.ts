@@ -1,7 +1,7 @@
 import { Actor, log } from 'apify';
 import type { ActorInput, ProductRecord, SourceName, SourceRunner } from './types.js';
 import { applyBestProductMatch, buildComparisonReport } from './matching.js';
-import { wasPushedRecordSaved } from './billing.js';
+import { productBillingPreflightIssue, wasPushedRecordSaved } from './billing.js';
 import { normalizeInput } from './input.js';
 import { buildSourceStatusDocument, noResultsError, safeErrorMessage, type SourceRunStatus } from './run-status.js';
 import {
@@ -36,6 +36,27 @@ function uniqueKey(record: ProductRecord): string | null {
 
 async function run(): Promise<void> {
   const input = normalizeInput((await Actor.getInput<ActorInput>()) ?? {});
+  const chargingManager = Actor.getChargingManager();
+  const pricingInfo = chargingManager.getPricingInfo();
+  const eventPriceUsd = pricingInfo.perEventPrices[CHARGE_EVENT];
+  const chargeableProductCount = chargingManager.calculateMaxEventChargeCountWithinLimit(CHARGE_EVENT);
+  const billingIssue = productBillingPreflightIssue({
+    isPayPerEvent: pricingInfo.isPayPerEvent,
+    eventPriceUsd,
+    chargeableProductCount,
+  });
+  if (billingIssue) {
+    await Actor.setStatusMessage('Stopped before scraping because the run cannot charge for one product.');
+    throw new Error(`Billing preflight failed: ${billingIssue}`);
+  }
+
+  log.info('Product billing preflight passed.', {
+    isPayPerEvent: pricingInfo.isPayPerEvent,
+    eventPriceUsd,
+    maxTotalChargeUsd: pricingInfo.maxTotalChargeUsd,
+    chargeableProductCount: Number.isFinite(chargeableProductCount) ? chargeableProductCount : 'unlimited',
+  });
+
   const proxyConfiguration = input.proxyConfiguration.useApifyProxy || input.proxyConfiguration.proxyUrls?.length
     ? await Actor.createProxyConfiguration(input.proxyConfiguration as never)
     : undefined;
