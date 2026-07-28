@@ -13,12 +13,12 @@
       "default": ["bigbasket"],
       "items": {
         "type": "string",
-        "enum": ["flipkart", "myntra", "bigbasket", "blinkit", "jiomart", "meesho", "aliexpress"],
-        "enumTitles": ["Flipkart", "Myntra", "BigBasket", "Blinkit", "JioMart", "Meesho", "AliExpress"]
+        "enum": ["flipkart", "myntra", "bigbasket", "meesho"],
+        "enumTitles": ["Flipkart", "Myntra", "BigBasket", "Meesho"]
       },
       "uniqueItems": true,
       "minItems": 1,
-      "maxItems": 7
+      "maxItems": 4
     },
     "targetProducts": {
       "title": "Products to compare",
@@ -85,7 +85,7 @@
     "city": {
       "title": "City / location name",
       "type": "string",
-      "description": "Used for location-aware sources such as BigBasket, Blinkit, and JioMart.",
+      "description": "Used for location-aware BigBasket results.",
       "editor": "textfield",
       "default": "Mumbai",
       "minLength": 1,
@@ -164,7 +164,7 @@
     "proxyConfiguration": {
       "title": "Proxy configuration",
       "type": "object",
-      "description": "Fallback proxy settings. HTTP sources try direct access first to reduce run cost, then use this proxy after a block or request failure. Browser sources use it from the first request.",
+      "description": "Fallback proxy settings. Sources try direct access first to reduce run cost, then use this proxy after a block or request failure.",
       "editor": "proxy",
       "default": {
         "useApifyProxy": true,

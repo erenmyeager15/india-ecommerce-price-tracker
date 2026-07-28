@@ -1,6 +1,6 @@
 # India E-commerce Price Tracker
 
-Discover comparable products and review public prices, discounts, ratings, stock signals, and listing URLs across seven Indian and cross-border marketplaces in one normalized Apify dataset.
+Discover comparable products and review public prices, discounts, ratings, stock signals, and listing URLs across four Indian marketplaces in one normalized Apify dataset.
 
 The Actor is built for competitor monitoring, assortment research, and recurring price snapshots. Structured product targets receive an explainable confidence score based on product-name terms, brand, pack size, and variant evidence. It saves product-level facts only and does not intentionally collect seller contacts, reviewer identities, emails, phone numbers, or other personal data.
 
@@ -20,12 +20,11 @@ The Actor is built for competitor monitoring, assortment research, and recurring
 | Flipkart | `flipkart` | General retail and electronics | No |
 | Myntra | `myntra` | Fashion, footwear, and accessories | No |
 | BigBasket | `bigbasket` | Grocery and household products | Yes |
-| Blinkit | `blinkit` | Quick-commerce availability and prices | Yes |
-| JioMart | `jiomart` | Grocery and general retail | Yes |
 | Meesho | `meesho` | Value fashion and marketplace catalogs | No |
-| AliExpress | `aliexpress` | Cross-border product comparisons | No |
 
 Each source runs independently. If one source is blocked or changes its payload, the Actor records a sanitized failure in `SOURCE_STATUS` and continues with the remaining selected sources. Explicit no-result pages remain distinct from parser or anti-bot failures.
+
+Blinkit, JioMart, and AliExpress are temporarily unavailable in public inputs. Their browser-based paths produced unpredictable proxy costs and empty runs, so they are parked until a direct/API implementation or separate pricing model is verified.
 
 ## Quick Start
 
@@ -35,7 +34,7 @@ Use structured targets when you know the products but not every competitor URL. 
 
 ```json
 {
-  "sources": ["bigbasket", "blinkit"],
+  "sources": ["bigbasket"],
   "targetProducts": [
     {
       "name": "Amul Gold Full Cream Milk",
@@ -118,7 +117,7 @@ This matches the bounded Store prefill used by Apify's automated quality check.
 
 ```json
 {
-  "sources": ["bigbasket", "blinkit", "jiomart"],
+  "sources": ["bigbasket"],
   "searchQueries": ["milk"],
   "city": "Mumbai",
   "latitude": 19.076,
@@ -141,7 +140,7 @@ This matches the bounded Store prefill used by Apify's automated quality check.
 | `sources` | array | `["bigbasket"]` | One or more supported marketplace input values. |
 | `targetProducts` | array | Empty | Up to five structured product definitions with name, optional brand, pack size, and variant. |
 | `searchQueries` | array | `["milk"]` | Broad product-discovery keywords. Ignored when `targetProducts` is supplied. |
-| `city` | string | `Mumbai` | Location label used by BigBasket, Blinkit, and JioMart. |
+| `city` | string | `Mumbai` | Location label used by BigBasket. |
 | `latitude` | number | `19.076` | Latitude for location-aware catalogs. |
 | `longitude` | number | `72.8777` | Longitude for location-aware catalogs. |
 | `brands` | array | Empty | Optional case-insensitive exact brand filters. |
@@ -150,7 +149,7 @@ This matches the bounded Store prefill used by Apify's automated quality check.
 | `inStockOnly` | boolean | `false` | Keep only records explicitly identified as in stock. |
 | `maxResults` | integer | `1` | Maximum clean records saved across all selected sources, capped at `1000`. |
 | `maxPagesPerQuery` | integer | `1` | Maximum pages or scroll payloads inspected per query and source, capped at `25`. |
-| `proxyConfiguration` | object | India residential | Optional Apify Proxy settings. Disable it for a deliberate proxy-free test only when the selected source supports that path. |
+| `proxyConfiguration` | object | India residential | Fallback proxy settings. Direct access is tried first; the proxy is used only after a request failure or block. |
 
 Brand filters are exact after case normalization. Records with unknown stock are excluded when `inStockOnly` is enabled. Products without a numeric price or a source-owned product URL are never saved or charged.
 
@@ -207,7 +206,7 @@ This is a public-data capability sample from a successful June 19, 2026 run for 
 | Amul Taaza Milk, 1 L | INR 57, in stock | INR 59, in stock | Blinkit +INR 2 (+3.5%) | High | Brand, Taaza product family, and 1 L pack match. Blinkit includes `Toned`; verify the product page before acting. |
 | Mother Dairy Full Cream Milk, 1 L | INR 72, in stock | No safe match in the stored Blinkit result set | Not compared | Needs review | Do not infer a competitor price. Add a known competitor URL or broaden the search. |
 
-The Blinkit rows were captured for Mumbai, while the stored BigBasket rows did not expose a city. Re-run both sources for the same city before using any price difference in a business decision. Product titles that are merely similar are excluded instead of being silently compared.
+This historical example is retained to explain matching confidence only; Blinkit is not currently selectable. The Blinkit rows were captured for Mumbai, while the stored BigBasket rows did not expose a city. Product titles that are merely similar are excluded instead of being silently compared.
 
 ## Export Quality
 
@@ -225,10 +224,10 @@ Each run also writes two default key-value-store records. `MATCH_REPORT` keeps t
 ## Tips For Better Results
 
 - Start with one source, one query, one page, and 1-3 results. Use 5-20 results for recurring reports so setup and proxy work are shared across more records.
-- Runs use a fixed 1 GB memory limit to keep platform costs predictable.
+- Runs default to 512 MB, with up to 1 GB available when selected manually.
 - Use broad product terms for discovery and exact brand filters for monitoring.
 - Split unrelated product categories into separate runs so result caps are easier to interpret.
-- Use Mumbai coordinates only as a sample; set the city and coordinates to the quick-commerce market you need.
+- Use Mumbai coordinates only as a sample; set the city and coordinates to the BigBasket market you need.
 - Enable an India residential proxy only when the selected source needs it.
 - Schedule the same input and compare `price`, `mrp`, `discountPercent`, and `inStock` over time.
 
@@ -236,9 +235,7 @@ Each run also writes two default key-value-store records. `MATCH_REPORT` keeps t
 
 - Marketplace layouts, public APIs, anti-bot systems, and regional catalogs can change without notice.
 - Location-aware results can differ by city, coordinates, inventory zone, and run time.
-- Blinkit browser searches can be slow and may return zero candidates when the public search payload is unavailable. Start with BigBasket for predictable matching validation; a cross-store price spread appears only when at least two sources return candidates.
 - Some sources do not expose stock, rating, image, brand, or MRP data for every listing; those fields remain `null` or `N/A`.
-- AliExpress can return a non-INR currency depending on the public listing response.
 - `maxResults` is shared across selected sources. Capacity unused by an earlier source is made available to later sources.
 - Each structured target receives a small per-source search budget so the first product cannot consume the entire comparison run. Set `maxResults` to at least the number of targets multiplied by the number of sources when every target/source pair matters.
 - Matching is heuristic. Similar names can still describe different variants, bundles, or regional listings, so `likely` and `needs_review` rows require source-page review.

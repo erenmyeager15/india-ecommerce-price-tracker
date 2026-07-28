@@ -5,10 +5,7 @@ export const SOURCE_NAMES: SourceName[] = [
   'flipkart',
   'myntra',
   'bigbasket',
-  'blinkit',
-  'jiomart',
   'meesho',
-  'aliexpress',
 ];
 
 const DEFAULT_PROXY: ProxyInput = {

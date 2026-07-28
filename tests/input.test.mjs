@@ -34,6 +34,9 @@ test('source names are case-insensitive and deduplicated', () => {
 
 test('unsupported and empty source lists are rejected', () => {
   assert.throws(() => normalizeInput({ sources: ['amazon'] }), /unsupported source/i);
+  assert.throws(() => normalizeInput({ sources: ['blinkit'] }), /unsupported source/i);
+  assert.throws(() => normalizeInput({ sources: ['jiomart'] }), /unsupported source/i);
+  assert.throws(() => normalizeInput({ sources: ['aliexpress'] }), /unsupported source/i);
   assert.throws(() => normalizeInput({ sources: [] }), /at least 1 item/i);
 });
 
