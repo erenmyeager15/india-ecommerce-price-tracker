@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { HTTP_REQUEST_ATTEMPTS, proxyUrlForAttempt } from '../request-strategy.js';
 import { appendProductCandidates, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.flipkart.com';
@@ -124,8 +125,8 @@ function buildSearchUrl(query: string, page: number): string {
 
 async function fetchHtml(url: string, context: SourceContext): Promise<string> {
   let lastError = new Error(`Flipkart request failed for ${url}`);
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
-    const proxyUrl = await context.proxyConfiguration?.newUrl(`flipkart_${attempt}`);
+  for (let attempt = 1; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
+    const proxyUrl = await proxyUrlForAttempt(context.proxyConfiguration, 'flipkart', attempt);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
     try {
       const response = await fetch(url, {

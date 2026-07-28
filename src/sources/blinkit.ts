@@ -97,7 +97,7 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
     headless: false,
     maxConcurrency: 1,
     minConcurrency: 1,
-    maxRequestRetries: 2,
+    maxRequestRetries: 1,
     retryOnBlocked: true,
     navigationTimeoutSecs: 90,
     requestHandlerTimeoutSecs: 240,
@@ -133,8 +133,8 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
       };
       page.on('response', responseHandler);
       try {
-        await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 }).catch(() => undefined);
-        await page.waitForTimeout(5_000);
+        await page.waitForLoadState('domcontentloaded', { timeout: 90_000 }).catch(() => undefined);
+        await page.waitForTimeout(3_000);
         let title = await page.title();
         let body = await page.locator('body').innerText().catch(() => '');
         if (isBlinkitBlockedText(title, body)) {

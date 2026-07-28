@@ -1,5 +1,6 @@
 import { gotScraping } from 'got-scraping';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { HTTP_REQUEST_ATTEMPTS, proxyUrlForAttempt } from '../request-strategy.js';
 import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.bigbasket.com';
@@ -104,9 +105,13 @@ export async function scrapeBigBasket(context: SourceContext): Promise<ProductRe
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
       let result: Awaited<ReturnType<typeof fetchPage>> | null = null;
       let lastError: unknown;
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
+      for (let attempt = 1; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
         try {
-          const proxyUrl = await context.proxyConfiguration?.newUrl(`bigbasket_${queryIndex}_${page}_${attempt}`);
+          const proxyUrl = await proxyUrlForAttempt(
+            context.proxyConfiguration,
+            `bigbasket_${queryIndex}_${page}`,
+            attempt,
+          );
           result = await fetchPage(query, page, proxyUrl);
           break;
         } catch (error) {

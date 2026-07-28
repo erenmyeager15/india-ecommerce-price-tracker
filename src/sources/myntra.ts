@@ -1,5 +1,6 @@
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { HTTP_REQUEST_ATTEMPTS, proxyUrlForAttempt } from '../request-strategy.js';
 import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, numberOrNull, redactText, sleep, uniqueStrings, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.myntra.com';
@@ -119,8 +120,8 @@ export function toMyntraRecord(product: MyntraProduct, query: string, position: 
 
 async function fetchHtml(url: string, context: SourceContext): Promise<string> {
   let lastError = new Error(`Myntra request failed for ${url}`);
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
-    const proxyUrl = await context.proxyConfiguration?.newUrl(`myntra_${attempt}`);
+  for (let attempt = 1; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
+    const proxyUrl = await proxyUrlForAttempt(context.proxyConfiguration, 'myntra', attempt);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
     try {
       const response = await fetch(url, {

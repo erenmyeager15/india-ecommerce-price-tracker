@@ -11,23 +11,16 @@ import {
   normalizeProductRecord,
   validateProductRecord,
 } from './utils.js';
-import { scrapeAliExpress } from './sources/aliexpress.js';
-import { scrapeBigBasket } from './sources/bigbasket.js';
-import { scrapeBlinkit } from './sources/blinkit.js';
-import { scrapeFlipkart } from './sources/flipkart.js';
-import { scrapeJioMart } from './sources/jiomart.js';
-import { scrapeMeesho } from './sources/meesho.js';
-import { scrapeMyntra } from './sources/myntra.js';
 
 const CHARGE_EVENT = 'product-scraped';
-const RUNNERS: Record<SourceName, SourceRunner> = {
-  flipkart: scrapeFlipkart,
-  myntra: scrapeMyntra,
-  bigbasket: scrapeBigBasket,
-  blinkit: scrapeBlinkit,
-  jiomart: scrapeJioMart,
-  meesho: scrapeMeesho,
-  aliexpress: scrapeAliExpress,
+const RUNNER_LOADERS: Record<SourceName, () => Promise<SourceRunner>> = {
+  flipkart: async () => (await import('./sources/flipkart.js')).scrapeFlipkart,
+  myntra: async () => (await import('./sources/myntra.js')).scrapeMyntra,
+  bigbasket: async () => (await import('./sources/bigbasket.js')).scrapeBigBasket,
+  blinkit: async () => (await import('./sources/blinkit.js')).scrapeBlinkit,
+  jiomart: async () => (await import('./sources/jiomart.js')).scrapeJioMart,
+  meesho: async () => (await import('./sources/meesho.js')).scrapeMeesho,
+  aliexpress: async () => (await import('./sources/aliexpress.js')).scrapeAliExpress,
 };
 
 function uniqueKey(record: ProductRecord): string | null {
@@ -89,7 +82,7 @@ async function run(): Promise<void> {
     // Recalculate the fair share after every source so unused capacity from an
     // under-delivering source is automatically available to later sources.
     const sourceLimit = Math.max(1, Math.ceil(remainingCapacity / remainingSources));
-    const runner = RUNNERS[source];
+    const runner = await RUNNER_LOADERS[source]();
     const perTargetLimit = Math.max(1, Math.ceil(sourceLimit / input.targetProducts.length));
     let records: ProductRecord[] = [];
     const sourceStartedAt = Date.now();

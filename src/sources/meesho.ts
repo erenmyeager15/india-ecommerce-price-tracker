@@ -1,5 +1,6 @@
 import { ProxyAgent } from 'undici';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { HTTP_REQUEST_ATTEMPTS, proxyUrlForAttempt } from '../request-strategy.js';
 import { absoluteUrl, appendProductCandidates, boolOrNull, cleanText, discountFromPrices, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.meesho.com';
@@ -90,8 +91,8 @@ export function classifyMeeshoPayload(value: unknown): MeeshoPayloadClassificati
 
 async function fetchPage(context: SourceContext, query: string, page: number, cursor: string | null, searchSessionId: string | null): Promise<any> {
   let lastError = new Error(`Meesho request failed for query ${query}`);
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
-    const proxyUrl = await context.proxyConfiguration?.newUrl(`meesho_${page}_${attempt}`);
+  for (let attempt = 1; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
+    const proxyUrl = await proxyUrlForAttempt(context.proxyConfiguration, `meesho_${page}`, attempt);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
     try {
       const response = await fetch(SEARCH_API, {
@@ -118,7 +119,7 @@ async function fetchPage(context: SourceContext, query: string, page: number, cu
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt >= 4) throw error;
+      if (attempt >= HTTP_REQUEST_ATTEMPTS) throw error;
       await sleep(900 * attempt);
     } finally {
       if (dispatcher) await dispatcher.close().catch(() => undefined);

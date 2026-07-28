@@ -30,8 +30,8 @@ test('example input and runtime resources stay aligned with QA defaults', () => 
   assert.equal(exampleInput.proxyConfiguration.useApifyProxy, true);
   assert.deepEqual(exampleInput.proxyConfiguration.apifyProxyGroups, ['RESIDENTIAL']);
   assert.equal(exampleInput.proxyConfiguration.apifyProxyCountry, 'IN');
-  assert.equal(actor.defaultRunOptions.memoryMbytes, 1024);
-  assert.equal(actor.minMemoryMbytes, 1024);
+  assert.equal(actor.defaultRunOptions.memoryMbytes, 512);
+  assert.equal(actor.minMemoryMbytes, 512);
   assert.equal(actor.maxMemoryMbytes, 1024);
   assert.equal(actor.pricingInfo.pricingPerEvent.actorChargeEvents['apify-actor-start'].eventPriceUsd, 0.00005);
   assert.equal(actor.pricingInfo.pricingPerEvent.actorChargeEvents['product-scraped'].eventPriceUsd, 0.002);

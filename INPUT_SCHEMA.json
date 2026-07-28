@@ -8,7 +8,7 @@
     "sources": {
       "title": "Sources",
       "type": "array",
-      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run. The prefilled first run uses BigBasket with an India residential proxy.",
+      "description": "Indian e-commerce sources to query. Each source is isolated; blocked sources are skipped without failing the full run. HTTP sources try direct access first and use the configured proxy only as a fallback.",
       "editor": "select",
       "default": ["bigbasket"],
       "items": {
@@ -164,7 +164,7 @@
     "proxyConfiguration": {
       "title": "Proxy configuration",
       "type": "object",
-      "description": "Proxy settings. The prefilled BigBasket run uses an India residential proxy because marketplace responses can be blocked or localized without one.",
+      "description": "Fallback proxy settings. HTTP sources try direct access first to reduce run cost, then use this proxy after a block or request failure. Browser sources use it from the first request.",
       "editor": "proxy",
       "default": {
         "useApifyProxy": true,
