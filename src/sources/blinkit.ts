@@ -1,5 +1,6 @@
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { blockHeavyBrowserResources } from '../browser-efficiency.js';
 import { appendProductCandidates, cleanText, discountFromPrices, numberOrNull, parseCompactCount, slugify, withDefaults } from '../utils.js';
 
 type JsonObject = Record<string, unknown>;
@@ -97,10 +98,11 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
     headless: false,
     maxConcurrency: 1,
     minConcurrency: 1,
-    maxRequestRetries: 1,
+    maxRequestRetries: 0,
+    maxSessionRotations: 1,
     retryOnBlocked: true,
-    navigationTimeoutSecs: 90,
-    requestHandlerTimeoutSecs: 240,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 120,
     maxRequestsPerCrawl: requests.length,
     sessionPoolOptions: {
       maxPoolSize: 30,
@@ -113,6 +115,7 @@ export async function scrapeBlinkit(context: SourceContext): Promise<ProductReco
       launchOptions: { args: ['--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-dev-shm-usage'] },
     },
     preNavigationHooks: [async ({ page }, gotoOptions) => {
+      await blockHeavyBrowserResources(page);
       await page.context().grantPermissions(['geolocation'], { origin: 'https://blinkit.com' });
       await page.context().setGeolocation({ latitude: context.input.latitude, longitude: context.input.longitude });
       await page.setExtraHTTPHeaders({ 'accept-language': 'en-IN,en;q=0.9' });

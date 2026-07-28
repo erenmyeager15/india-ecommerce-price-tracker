@@ -1,5 +1,6 @@
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { blockHeavyBrowserResources } from '../browser-efficiency.js';
 import { appendProductCandidates, cleanText, discountFromPrices, numberOrNull, redactText, withDefaults } from '../utils.js';
 
 type JsonObject = Record<string, unknown>;
@@ -247,11 +248,11 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
     headless: false,
     maxConcurrency: 1,
     minConcurrency: 1,
-    maxRequestRetries: 1,
+    maxRequestRetries: 0,
     maxSessionRotations: 1,
     retryOnBlocked: true,
-    navigationTimeoutSecs: 90,
-    requestHandlerTimeoutSecs: 300,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 180,
     maxRequestsPerCrawl: requests.length,
     sessionPoolOptions: { maxPoolSize: 30, blockedStatusCodes: [], sessionOptions: { maxUsageCount: 10 } },
     browserPoolOptions: { useFingerprints: true },
@@ -260,6 +261,7 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
       launchOptions: { args: ['--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-dev-shm-usage'] },
     },
     preNavigationHooks: [async ({ page }, gotoOptions) => {
+      await blockHeavyBrowserResources(page);
       await page.context().grantPermissions(['geolocation'], { origin: 'https://www.jiomart.com' });
       await page.context().setGeolocation({ latitude: context.input.latitude, longitude: context.input.longitude });
       await page.setExtraHTTPHeaders({ 'accept-language': 'en-IN,en;q=0.9' });
@@ -306,7 +308,7 @@ export async function scrapeJioMart(context: SourceContext): Promise<ProductReco
         await settle();
         if (countRelevantJioMartPayloads(payloads, searchQuery) === 0) {
           await clear();
-          await page.goto(buildJioMartProductsUrl(searchQuery), { waitUntil: 'domcontentloaded', timeout: 90_000 });
+          await page.goto(buildJioMartProductsUrl(searchQuery), { waitUntil: 'domcontentloaded', timeout: 60_000 });
           await page.waitForTimeout(6_000);
           await settle();
         }

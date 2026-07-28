@@ -1,6 +1,7 @@
 import type { Page } from 'playwright';
 import { PlaywrightCrawler } from 'crawlee';
 import type { ProductRecord, SourceContext } from '../types.js';
+import { blockHeavyBrowserResources } from '../browser-efficiency.js';
 import { appendProductCandidates, cleanText, numberOrNull, parseCompactCount, redactText, sleep, withDefaults } from '../utils.js';
 
 function buildSearchUrl(query: string, pageNumber: number): string {
@@ -152,11 +153,11 @@ export async function scrapeAliExpress(context: SourceContext): Promise<ProductR
     headless: false,
     maxConcurrency: 1,
     minConcurrency: 1,
-    maxRequestRetries: 1,
+    maxRequestRetries: 0,
     maxSessionRotations: 1,
     retryOnBlocked: true,
-    navigationTimeoutSecs: 90,
-    requestHandlerTimeoutSecs: 180,
+    navigationTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 120,
     maxRequestsPerCrawl: requests.length,
     sessionPoolOptions: { maxPoolSize: 30, blockedStatusCodes: [], sessionOptions: { maxUsageCount: 10 } },
     browserPoolOptions: { useFingerprints: true },
@@ -165,6 +166,7 @@ export async function scrapeAliExpress(context: SourceContext): Promise<ProductR
       launchOptions: { args: ['--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-dev-shm-usage'] },
     },
     preNavigationHooks: [async ({ page }, gotoOptions) => {
+      await blockHeavyBrowserResources(page);
       page.setDefaultTimeout(12_000);
       if (gotoOptions) gotoOptions.waitUntil = 'domcontentloaded';
       await sleep(900 + Math.floor(Math.random() * 1200));
@@ -172,7 +174,7 @@ export async function scrapeAliExpress(context: SourceContext): Promise<ProductR
     requestHandler: async ({ page, request, session }) => {
       if (records.length >= context.maxResults) return;
       const { searchQuery, pageNumber } = request.userData as { searchQuery: string; pageNumber: number };
-      await page.waitForSelector('a.search-card-item[href*="/item/"]', { timeout: 60_000 }).catch(() => null);
+      await page.waitForSelector('a.search-card-item[href*="/item/"]', { timeout: 45_000 }).catch(() => null);
       if (await isAliExpressBlockedPage(page)) {
         session?.markBad();
         throw new Error(`AliExpress challenge page detected for ${request.url}`);
