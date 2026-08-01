@@ -167,32 +167,32 @@ Each dataset item follows the same field order for predictable CSV, Excel, JSON,
 
 ## Verified Sample Output
 
-The product facts in the following record came from a successful Myntra run on June 23, 2026. The matching fields show how broad keyword discovery is conservatively labeled after the v2 matching upgrade.
+The product facts in the following record came from a successful BigBasket run on July 28, 2026. The matching fields show how exact brand, product, and pack-size evidence produces a high-confidence result.
 
 ```json
 {
-  "source": "myntra",
-  "searchQuery": "kurti",
-  "targetProduct": "kurti",
-  "matchConfidence": "likely",
-  "matchScore": 65,
-  "matchReason": "name 1/1 terms",
+  "source": "bigbasket",
+  "searchQuery": "Amul Gold Full Cream Milk 1 L",
+  "targetProduct": "Amul Gold Full Cream Milk",
+  "matchConfidence": "high",
+  "matchScore": 100,
+  "matchReason": "name 4/4 terms; brand matched Amul; pack matched 1 l; variant 3/3 terms",
   "position": 1,
-  "productId": "32402499",
-  "title": "Sangria Women Embroidered Tie Up Neck Short Top",
-  "brand": "Sangria",
-  "price": 575,
-  "mrp": 1799,
-  "discountPercent": 68,
+  "productId": "40175764",
+  "title": "Gold Full Cream Milk",
+  "brand": "Amul",
+  "price": 72,
+  "mrp": 72,
+  "discountPercent": null,
   "currency": "INR",
-  "packSize": "S, M, L, XL, XXL",
-  "category": "Kurtis",
-  "rating": 4,
-  "ratingCount": 518,
-  "inStock": null,
-  "productUrl": "https://www.myntra.com/kurtis/sangria/sangria-women-embroidered-tie-up-neck-short-top/32402499/buy",
-  "imageUrl": "https://assets.myntassets.com/assets/images/2025/JANUARY/20/Ddbz2VT6_d952864492a042c2af83594217f21ef6.jpg",
-  "scrapedAt": "2026-06-23T13:06:09.076Z"
+  "packSize": "1 L",
+  "category": "Bakery, Cakes & Dairy",
+  "rating": null,
+  "ratingCount": null,
+  "inStock": true,
+  "productUrl": "https://www.bigbasket.com/pd/40175764/amul-amul-gold-1-l/",
+  "imageUrl": "https://www.bbassets.com/media/uploads/p/l/40175764_7-amul-amul-gold.jpg",
+  "scrapedAt": "2026-07-28T14:52:42.645Z"
 }
 ```
 
