@@ -1,10 +1,11 @@
 import { gotScraping } from 'got-scraping';
+import { randomUUID } from 'node:crypto';
 import type { ProductRecord, SourceContext } from '../types.js';
 import { HTTP_REQUEST_ATTEMPTS, proxyUrlForAttempt } from '../request-strategy.js';
 import { absoluteUrl, appendProductCandidates, cleanText, discountFromPrices, integerOrNull, numberOrNull, redactText, sleep, withDefaults } from '../utils.js';
 
 const ORIGIN = 'https://www.bigbasket.com';
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36';
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36';
 
 function cookieHeader(setCookie: string[] | string | undefined): string {
   const values = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
@@ -54,6 +55,16 @@ export function productsFromBigBasketPayload(data: Record<string, any>, query: s
   return { products, pages: integerOrNull(productInfo.number_of_pages) ?? page };
 }
 
+export function buildBigBasketListingEndpoint(query: string, page: number): URL {
+  // BigBasket's current Akamai route rejects /products but accepts the
+  // canonical trailing-slash route used by its public storefront.
+  const endpoint = new URL('/listing-svc/v2/products/', ORIGIN);
+  endpoint.searchParams.set('type', 'ps');
+  endpoint.searchParams.set('slug', query);
+  endpoint.searchParams.set('page', String(page));
+  return endpoint;
+}
+
 async function fetchPage(query: string, page: number, proxyUrl?: string): Promise<{ products: ProductRecord[]; pages: number }> {
   const landingUrl = `${ORIGIN}/ps/?q=${encodeURIComponent(query)}`;
   const headers = { 'user-agent': USER_AGENT, 'accept-language': 'en-IN,en;q=0.9' };
@@ -67,24 +78,25 @@ async function fetchPage(query: string, page: number, proxyUrl?: string): Promis
   });
   if (landing.statusCode >= 400) throw new Error(`BigBasket landing HTTP ${landing.statusCode}`);
 
-  const endpoint = new URL('/listing-svc/v2/products', ORIGIN);
-  endpoint.searchParams.set('type', 'ps');
-  endpoint.searchParams.set('slug', query);
-  endpoint.searchParams.set('page', String(page));
+  const endpoint = buildBigBasketListingEndpoint(query, page);
 
   const response = await gotScraping({
     url: endpoint,
     proxyUrl,
     headers: {
       ...headers,
-      accept: 'application/json, text/plain, */*',
+      accept: '*/*',
       referer: landingUrl,
       cookie: cookieHeader(landing.headers['set-cookie']),
+      'content-type': 'application/json',
+      'x-requested-with': 'XMLHttpRequest',
       'osmos-enabled': 'true',
       'x-channel': 'BB-WEB',
       'x-caller': 'UIKIRK',
+      'x-tracker': randomUUID(),
       'x-entry-context': 'bb-b2c',
       'x-entry-context-id': '100',
+      'x-integrated-fc-door-visible': 'true',
       'common-client-static-version': '101',
     },
     responseType: 'text',

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { productsFromBigBasketPayload } from '../dist/sources/bigbasket.js';
+import { buildBigBasketListingEndpoint, productsFromBigBasketPayload } from '../dist/sources/bigbasket.js';
 import { classifyMyxPayload, extractMyxData, toMyntraRecord } from '../dist/sources/myntra.js';
 import { classifyFlipkartHtml, parseFlipkartSearchResults } from '../dist/sources/flipkart.js';
 import { classifyMeeshoPayload, toMeeshoRecord } from '../dist/sources/meesho.js';
@@ -39,6 +39,14 @@ test('BigBasket maps a valid listing API product', () => {
 test('BigBasket rejects API errors and unexpected payload drift', () => {
   assert.throws(() => productsFromBigBasketPayload({ errors: [{ msg: 'blocked' }] }, 'milk', 1), /blocked/);
   assert.throws(() => productsFromBigBasketPayload({ tabs: [] }, 'milk', 1), /unexpected payload shape/i);
+});
+
+test('BigBasket uses the canonical trailing-slash listing endpoint', () => {
+  const endpoint = buildBigBasketListingEndpoint('Amul Gold Full Cream Milk 1 L', 2);
+  assert.equal(endpoint.pathname, '/listing-svc/v2/products/');
+  assert.equal(endpoint.searchParams.get('type'), 'ps');
+  assert.equal(endpoint.searchParams.get('slug'), 'Amul Gold Full Cream Milk 1 L');
+  assert.equal(endpoint.searchParams.get('page'), '2');
 });
 
 test('Myntra extracts and classifies window.__myx payloads', () => {
