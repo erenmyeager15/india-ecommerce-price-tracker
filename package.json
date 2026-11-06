@@ -26,6 +26,9 @@
     "typescript": "^5.9.2"
   },
   "overrides": {
-    "brace-expansion": "5.0.12"
+    "brace-expansion": "5.0.12",
+    "basic-ftp": "6.2.5",
+    "follow-redirects": "1.16.2",
+    "ip-address": "10.7.5"
   }
 }
