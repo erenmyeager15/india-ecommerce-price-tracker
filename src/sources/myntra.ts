@@ -118,9 +118,23 @@ export function toMyntraRecord(product: MyntraProduct, query: string, position: 
   });
 }
 
-async function fetchHtml(url: string, context: SourceContext): Promise<string> {
-  let lastError = new Error(`Myntra request failed for ${url}`);
+/** Direct requests from Apify IPs can get HTTP 200 with a page that has no
+ * product data (verified 6 Nov 2026). Treat that like a block, so the next
+ * attempt goes through the configured proxy instead of failing the source. */
+async function fetchSearchPayload(url: string, context: SourceContext): Promise<MyntraPayloadClassification> {
+  let last: MyntraPayloadClassification = { kind: 'invalid', products: [], reason: 'window.__myx was missing or invalid JSON' };
   for (let attempt = 1; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
+    const payload = classifyMyxPayload(extractMyxData(await fetchHtml(url, context, attempt)));
+    if (payload.kind !== 'invalid') return payload;
+    last = payload;
+    await sleep(900 * attempt);
+  }
+  return last;
+}
+
+async function fetchHtml(url: string, context: SourceContext, firstAttempt = 1): Promise<string> {
+  let lastError = new Error(`Myntra request failed for ${url}`);
+  for (let attempt = firstAttempt; attempt <= HTTP_REQUEST_ATTEMPTS; attempt += 1) {
     const proxyUrl = await proxyUrlForAttempt(context.proxyConfiguration, 'myntra', attempt);
     const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
     try {
@@ -164,8 +178,7 @@ export async function scrapeMyntra(context: SourceContext): Promise<ProductRecor
     let querySaved = 0;
     const queryLimit = context.maxResultsPerQuery ?? context.maxResults;
     for (let page = 1; page <= context.input.maxPagesPerQuery && records.length < context.maxResults; page += 1) {
-      const html = await fetchHtml(buildSearchUrl(query, page), context);
-      const payload = classifyMyxPayload(extractMyxData(html));
+      const payload = await fetchSearchPayload(buildSearchUrl(query, page), context);
       if (payload.kind === 'invalid') throw new Error(`Myntra payload invalid: ${payload.reason}`);
       if (payload.kind === 'empty') break;
       const products = payload.products;
